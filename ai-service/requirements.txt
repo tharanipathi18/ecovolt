@@ -1,0 +1,22 @@
+# EcoVolt AI Service — Python Dependencies
+
+# Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+
+# Machine Learning
+scikit-learn>=1.6.0
+xgboost>=2.1.0
+numpy>=2.0.0
+pandas>=2.2.0
+
+# HTTP Client (to communicate with Node.js backend)
+httpx>=0.28.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Development
+pytest>=8.3.0
+pytest-asyncio>=0.25.0

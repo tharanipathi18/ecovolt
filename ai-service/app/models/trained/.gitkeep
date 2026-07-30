@@ -1,0 +1,3 @@
+# Trained ML models directory
+# This directory stores serialized ML models (e.g., .pkl, .joblib files)
+# Models are loaded by the AI service at startup
