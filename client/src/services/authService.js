@@ -19,8 +19,9 @@ const authService = {
 
   /**
    * Retrieve the currently authenticated user's profile.
+   * Uses /auth/profile (primary route); /auth/me is kept as a server alias.
    */
-  getProfile: () => apiClient.get('/auth/me'),
+  getProfile: () => apiClient.get('/auth/profile'),
 
   /**
    * Logout (clear server cookie).

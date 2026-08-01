@@ -7,7 +7,7 @@ import * as energyService from '../services/energy.service.js';
  * @access  Private (generator, admin)
  */
 export const createGenerator = asyncHandler(async (req, res) => {
-  const generator = await energyService.createGenerator(req.user._id, req.body);
+  const generator = await energyService.createGenerator(req.user.id, req.body);
   res.status(201).json({
     success: true,
     message: 'Energy generator facility created successfully',
@@ -21,7 +21,7 @@ export const createGenerator = asyncHandler(async (req, res) => {
  * @access  Private (generator, admin)
  */
 export const getGenerators = asyncHandler(async (req, res) => {
-  const generators = await energyService.getGenerators(req.user._id, req.user.role, req.query);
+  const generators = await energyService.getGenerators(req.user.id, req.user.role, req.query);
   res.status(200).json({
     success: true,
     count: generators.length,
@@ -35,7 +35,7 @@ export const getGenerators = asyncHandler(async (req, res) => {
  * @access  Private (generator, admin)
  */
 export const getGeneratorById = asyncHandler(async (req, res) => {
-  const generator = await energyService.getGeneratorById(req.params.id, req.user._id, req.user.role);
+  const generator = await energyService.getGeneratorById(req.params.id, req.user.id, req.user.role);
   res.status(200).json({
     success: true,
     data: { generator },
@@ -50,7 +50,7 @@ export const getGeneratorById = asyncHandler(async (req, res) => {
 export const updateGenerator = asyncHandler(async (req, res) => {
   const generator = await energyService.updateGenerator(
     req.params.id,
-    req.user._id,
+    req.user.id,
     req.user.role,
     req.body,
   );
@@ -67,7 +67,11 @@ export const updateGenerator = asyncHandler(async (req, res) => {
  * @access  Private (generator, admin)
  */
 export const uploadEnergyProduction = asyncHandler(async (req, res) => {
-  const result = await energyService.uploadEnergyProduction(req.user._id, req.user.role, req.body);
+  const result = await energyService.logProduction(
+    req.body.generatorId,
+    req.user.id,
+    req.body,
+  );
   res.status(201).json({
     success: true,
     message: 'Energy production batch uploaded and logged successfully',
@@ -81,7 +85,7 @@ export const uploadEnergyProduction = asyncHandler(async (req, res) => {
  * @access  Private (generator, admin)
  */
 export const getAnalytics = asyncHandler(async (req, res) => {
-  const analytics = await energyService.getGeneratorAnalytics(req.user._id, req.user.role);
+  const analytics = await energyService.getGeneratorAnalytics(req.user.id, req.user.role);
   res.status(200).json({
     success: true,
     data: analytics,
@@ -94,7 +98,7 @@ export const getAnalytics = asyncHandler(async (req, res) => {
  * @access  Private (generator, admin)
  */
 export const getTransactions = asyncHandler(async (req, res) => {
-  const transactions = await energyService.getGeneratorTransactions(req.user._id, req.user.role);
+  const transactions = await energyService.getEnergyTransactions(req.user.id, req.user.role);
   res.status(200).json({
     success: true,
     count: transactions.length,

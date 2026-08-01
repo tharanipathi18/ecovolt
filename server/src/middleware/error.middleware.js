@@ -11,7 +11,9 @@ export const notFound = (req, res, next) => {
 
 /**
  * Global error handler.
- * Normalizes error responses and hides stack traces in production.
+ *
+ * Handles Prisma-specific errors, JWT errors, and generic application errors.
+ * Stack traces are only included in development mode.
  */
 export const errorHandler = (err, _req, res, _next) => {
   // Use err.statusCode (set by service layer), res.statusCode (set by controller), or 500
@@ -23,35 +25,43 @@ export const errorHandler = (err, _req, res, _next) => {
     ...(config.nodeEnv === 'development' && { stack: err.stack }),
   };
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    response.message = 'Resource not found';
+  // ─── Prisma Error Codes ────────────────────────────────────────────
+  // P2002 — Unique constraint violation (e.g. duplicate email)
+  if (err.code === 'P2002') {
+    const fields = err.meta?.target?.join(', ') || 'field';
+    response.message = `A record with this ${fields} already exists`;
+    return res.status(409).json(response);
+  }
+
+  // P2025 — Record not found (e.g. update/delete on non-existent ID)
+  if (err.code === 'P2025') {
+    response.message = err.meta?.cause || 'Record not found';
     return res.status(404).json(response);
   }
 
-  // Mongoose duplicate key
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue).join(', ');
-    response.message = `Duplicate value for field: ${field}`;
+  // P2003 — Foreign key constraint violation
+  if (err.code === 'P2003') {
+    response.message = 'Related record not found';
     return res.status(400).json(response);
   }
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    response.message = Object.values(err.errors).map((e) => e.message).join(', ');
+  // P2014 — Relation violation
+  if (err.code === 'P2014') {
+    response.message = 'Invalid relation in request data';
     return res.status(400).json(response);
   }
 
-  // JWT errors
+  // ─── JWT Errors ────────────────────────────────────────────────────
   if (err.name === 'JsonWebTokenError') {
-    response.message = 'Invalid token';
+    response.message = 'Invalid token — please log in again';
     return res.status(401).json(response);
   }
 
   if (err.name === 'TokenExpiredError') {
-    response.message = 'Token expired';
+    response.message = 'Token expired — please log in again';
     return res.status(401).json(response);
   }
 
+  // ─── Generic fallthrough ───────────────────────────────────────────
   res.status(statusCode).json(response);
 };

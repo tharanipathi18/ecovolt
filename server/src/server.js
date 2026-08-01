@@ -6,7 +6,7 @@ import { config, connectDB } from './config/index.js';
  * Connects to database and starts the Express server.
  */
 const startServer = async () => {
-  // Connect to MongoDB
+  // Connect to Supabase PostgreSQL via Prisma
   await connectDB();
 
   // Start Express server

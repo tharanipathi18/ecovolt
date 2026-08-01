@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 
 /**
@@ -36,12 +36,12 @@ export default function ProtectedRoute({ children, roles }) {
           <p className="text-surface-400 mb-6">
             You don't have permission to access this page.
           </p>
-          <a
-            href="/dashboard"
+          <Link
+            to="/dashboard"
             className="inline-block px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors"
           >
             Go to Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     );

@@ -26,6 +26,52 @@ export const createGenerator = async (operatorId, data) => {
   });
 };
 
+/** Get a single generator by ID (with ownership guard) */
+export const getGeneratorById = async (generatorId, operatorId, role) => {
+  const generator = await prisma.energyGenerator.findUnique({
+    where: { id: generatorId },
+    include: {
+      operator: { select: { id: true, name: true, email: true } },
+      productionLogs: { orderBy: { recordedAt: 'desc' }, take: 10 },
+    },
+  });
+
+  if (!generator) {
+    const error = new Error('Generator facility not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (role !== 'admin' && generator.operatorId !== operatorId) {
+    const error = new Error('Not authorized to access this generator');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return generator;
+};
+
+/** Update generator facility details */
+export const updateGenerator = async (generatorId, operatorId, role, data) => {
+  const generator = await prisma.energyGenerator.findUnique({ where: { id: generatorId } });
+  if (!generator) {
+    const error = new Error('Generator facility not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (role !== 'admin' && generator.operatorId !== operatorId) {
+    const error = new Error('Not authorized to update this generator');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return prisma.energyGenerator.update({
+    where: { id: generatorId },
+    data,
+  });
+};
+
 /** Log power output production */
 export const logProduction = async (generatorId, operatorId, data) => {
   const generator = await prisma.energyGenerator.findUnique({

@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '@contexts/AuthContext';
 
 // Auth guards
 import { ProtectedRoute, GuestRoute } from '@components/auth';
@@ -30,11 +29,31 @@ import NotFound from '@pages/NotFound';
 
 /**
  * Complete Application Route Configuration.
+ *
+ * Route guard logic:
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │  GuestRoute     — allows only unauthenticated users                    │
+ * │                   authenticated users → redirected to their dashboard  │
+ * │                                                                         │
+ * │  ProtectedRoute — allows only authenticated users                      │
+ * │                   unauthenticated → redirected to /login               │
+ * │                   with `state.from` so Login can send them back        │
+ * │                                                                         │
+ * │  ProtectedRoute roles={[...]} — additionally checks user.role          │
+ * │                   wrong role → shows Access Denied screen              │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * Route nesting:
+ *  Public routes        → PublicLayout (navbar + footer, no auth required)
+ *  Auth routes          → GuestRoute (standalone pages, no layout)
+ *  Dashboard routes     → ProtectedRoute → MainLayout → inner ProtectedRoute
+ *                         (double guard: outer checks auth, inner checks role)
  */
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* ─── Public Website Routes (Wrapped in PublicLayout) ────────── */}
+
+      {/* ─── Public Website Routes (Wrapped in PublicLayout) ──────────────── */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -42,7 +61,13 @@ export default function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
       </Route>
 
-      {/* ─── Guest Auth Routes ──────────────────────────────────────── */}
+      {/* ─── Guest-Only Auth Routes ───────────────────────────────────────── */}
+      {/*
+        GuestRoute behaviour:
+        • loading  → full-screen spinner (prevents flash)
+        • isAuthenticated → <Navigate to={getDashboardPath()} replace />
+        • guest    → renders the child page
+      */}
       <Route
         path="/login"
         element={
@@ -68,7 +93,18 @@ export default function AppRoutes() {
         }
       />
 
-      {/* ─── Private / Protected Dashboard Routes (MainLayout) ────── */}
+      {/* ─── Protected Dashboard Routes ───────────────────────────────────── */}
+      {/*
+        Outer ProtectedRoute (no roles):
+          • loading        → full-screen spinner
+          • !isAuthenticated → <Navigate to="/login" state={{ from: location }} replace />
+          • authenticated  → renders MainLayout (sidebar + topbar shell)
+            └── Outlet renders the matched child route
+
+        Inner ProtectedRoute (with roles):
+          • wrong role → Access Denied screen with Link back to /dashboard
+          • correct role → renders the page component
+      */}
       <Route
         element={
           <ProtectedRoute>
@@ -76,6 +112,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
+        {/* /dashboard — EV Users & Admins */}
         <Route
           path="/dashboard"
           element={
@@ -84,6 +121,8 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* /energy — Energy Generators & Admins */}
         <Route
           path="/energy"
           element={
@@ -92,6 +131,8 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* /charging — Port Operators & Admins */}
         <Route
           path="/charging"
           element={
@@ -100,6 +141,8 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* /fleet — Fleet Managers & Admins */}
         <Route
           path="/fleet"
           element={
@@ -108,6 +151,8 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* /admin — Admins only */}
         <Route
           path="/admin"
           element={
@@ -118,8 +163,9 @@ export default function AppRoutes() {
         />
       </Route>
 
-      {/* ─── 404 Catch-All ──────────────────────────────────────────── */}
+      {/* ─── 404 Catch-All ────────────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />
+
     </Routes>
   );
 }

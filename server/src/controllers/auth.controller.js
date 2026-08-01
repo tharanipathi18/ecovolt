@@ -39,24 +39,31 @@ export const register = asyncHandler(async (req, res) => {
  * @access  Public
  */
 export const login = asyncHandler(async (req, res) => {
-  const { user, token } = await authService.loginUser(req.body);
+  const { email, password } = req.body;
+  const { user, token } = await authService.loginUser({ email, password });
   sendTokenResponse(res, 200, user, token, 'Login successful');
 });
 
 /**
  * @desc    Get current logged-in user profile
  * @route   GET /api/auth/me
+ * @route   GET /api/auth/profile
  * @access  Private
+ *
+ * NOTE: The `protect` middleware already verified the JWT and loaded the
+ * full user object (minus password) into req.user via a Prisma select.
+ * We return that directly — no second DB round-trip needed.
  */
 export const getMe = asyncHandler(async (req, res) => {
-  const user = await authService.getUserProfile(req.user.id);
-
   res.status(200).json({
     success: true,
-    message: 'User profile retrieved',
-    data: { user },
+    message: 'Profile retrieved successfully',
+    data: { user: req.user },
   });
 });
+
+// Alias — /api/auth/profile points to the same handler
+export const getProfile = getMe;
 
 /**
  * @desc    Logout user — clear cookie

@@ -7,7 +7,7 @@ import * as chargingService from '../services/charging.service.js';
  * @access  Private (ev_port, admin)
  */
 export const createPort = asyncHandler(async (req, res) => {
-  const port = await chargingService.createPort(req.user._id, req.body);
+  const port = await chargingService.createChargingPort(req.user.id, req.body);
   res.status(201).json({
     success: true,
     message: 'Charging port created successfully',
@@ -21,7 +21,7 @@ export const createPort = asyncHandler(async (req, res) => {
  * @access  Private / Public
  */
 export const getPorts = asyncHandler(async (req, res) => {
-  const ports = await chargingService.getPorts(req.user._id, req.user.role, req.query);
+  const ports = await chargingService.getChargingPorts(req.user.id, req.user.role, req.query);
   res.status(200).json({
     success: true,
     count: ports.length,
@@ -35,10 +35,10 @@ export const getPorts = asyncHandler(async (req, res) => {
  * @access  Private / Public
  */
 export const getPortById = asyncHandler(async (req, res) => {
-  const port = await chargingService.getPortById(req.params.id);
+  const result = await chargingService.getChargingPortById(req.params.id);
   res.status(200).json({
     success: true,
-    data: { port },
+    data: result,
   });
 });
 
@@ -48,7 +48,12 @@ export const getPortById = asyncHandler(async (req, res) => {
  * @access  Private (ev_port, admin)
  */
 export const updatePort = asyncHandler(async (req, res) => {
-  const port = await chargingService.updatePort(req.params.id, req.user._id, req.user.role, req.body);
+  const port = await chargingService.updateChargingPort(
+    req.params.id,
+    req.user.id,
+    req.user.role,
+    req.body,
+  );
   res.status(200).json({
     success: true,
     message: 'Charging port updated successfully',
@@ -62,7 +67,7 @@ export const updatePort = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const startSession = asyncHandler(async (req, res) => {
-  const session = await chargingService.startSession(req.user._id, req.body);
+  const session = await chargingService.startChargingSession(req.user.id, req.body);
   res.status(201).json({
     success: true,
     message: 'Charging session started successfully',
@@ -76,7 +81,10 @@ export const startSession = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const stopSession = asyncHandler(async (req, res) => {
-  const session = await chargingService.stopSession(req.params.id, req.user._id, req.user.role, req.body);
+  const session = await chargingService.stopChargingSession(
+    req.params.id,
+    req.body,
+  );
   res.status(200).json({
     success: true,
     message: 'Charging session completed',
@@ -90,7 +98,7 @@ export const stopSession = asyncHandler(async (req, res) => {
  * @access  Private (ev_port, generator, admin)
  */
 export const allocateEnergy = asyncHandler(async (req, res) => {
-  const result = await chargingService.allocateEnergyToPort(req.user._id, req.user.role, req.body);
+  const result = await chargingService.allocateEnergy(req.user.id, req.body);
   res.status(200).json({
     success: true,
     message: 'Renewable energy allocated to charging port',
@@ -118,7 +126,7 @@ export const getQueue = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const addToQueue = asyncHandler(async (req, res) => {
-  const queueEntry = await chargingService.addToQueue(req.user._id, req.body);
+  const queueEntry = await chargingService.addToQueue(req.body);
   res.status(201).json({
     success: true,
     message: 'Vehicle added to waiting queue',
@@ -132,7 +140,7 @@ export const addToQueue = asyncHandler(async (req, res) => {
  * @access  Private (ev_port, admin)
  */
 export const getAnalytics = asyncHandler(async (req, res) => {
-  const analytics = await chargingService.getChargingAnalytics(req.user._id, req.user.role);
+  const analytics = await chargingService.getChargingAnalytics(req.user.id, req.user.role);
   res.status(200).json({
     success: true,
     data: analytics,

@@ -21,8 +21,15 @@ router.post('/register', validate(validateRegister), authController.register);
 router.post('/login', validate(validateLogin), authController.login);
 
 /**
+ * @route   GET /api/auth/profile
+ * @desc    Get the authenticated user's profile (primary route)
+ * @access  Private
+ */
+router.get('/profile', protect, authController.getProfile);
+
+/**
  * @route   GET /api/auth/me
- * @desc    Get current logged-in user
+ * @desc    Get the authenticated user's profile (alias for backwards compatibility)
  * @access  Private
  */
 router.get('/me', protect, authController.getMe);

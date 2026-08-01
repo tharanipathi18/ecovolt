@@ -1,18 +1,46 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { ROLE_LABELS } from '@utils/constants';
 
 /**
- * Modern Navbar component with EcoVolt logo, search input, notification center, and user avatar dropdown.
+ * Modern Navbar component with EcoVolt logo, search input, notification
+ * center, and user avatar dropdown.
+ *
+ * Logout flow:
+ *  1. User clicks "Sign Out" → handleLogout() runs
+ *  2. Spinner shown in the button, button disabled (prevents double-click)
+ *  3. AuthContext.logout() fires:
+ *       a. POST /api/auth/logout → clears server-side HttpOnly cookie
+ *       b. finally block → setUser(null), setToken(null), setError(null),
+ *          localStorage.removeItem('ecovolt_token')
+ *  4. navigate('/login', { replace: true }) — client navigates to login page
+ *     (replace: true removes the dashboard from history so Back doesn't return)
  */
 export default function Navbar({ onToggleSidebar }) {
   const { user, logout } = useAuth();
-  const location = useLocation();
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const location  = useLocation();
+  const navigate  = useNavigate();
 
-  // Sample system notifications
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu]   = useState(false);
+  const [isLoggingOut, setIsLoggingOut]   = useState(false);
+
+  // ── Logout handler ────────────────────────────────────────────────
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // AuthContext clears: user, token, error, localStorage token
+      await logout();
+      // Explicit redirect — replaces history so Back button won't go back
+      navigate('/login', { replace: true });
+    } finally {
+      // Safety net: reset spinner in case navigate fails (should never happen)
+      setIsLoggingOut(false);
+    }
+  };
+
+  // ── Sample system notifications ───────────────────────────────────
   const notifications = [
     { id: 1, title: 'Solar Array Alpha', text: 'Peak generation reached (450 kW)', time: '5m ago', unread: true },
     { id: 2, title: 'Grid Coordination', text: 'Demand forecast synced with AI model', time: '20m ago', unread: true },
@@ -23,7 +51,8 @@ export default function Navbar({ onToggleSidebar }) {
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-surface-900/80 backdrop-blur-xl border-b border-surface-800/80 px-4 md:px-6 flex items-center justify-between gap-4">
-      {/* Left: Mobile Menu Toggle & Breadcrumbs / Page Title */}
+
+      {/* ── Left: Mobile Menu Toggle & Breadcrumb ───────────────────── */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
@@ -43,7 +72,7 @@ export default function Navbar({ onToggleSidebar }) {
           </span>
         </Link>
 
-        {/* Breadcrumb info */}
+        {/* Breadcrumb */}
         <div className="hidden md:flex items-center gap-2 text-sm text-surface-400">
           <span className="text-surface-600">Platform</span>
           <span>/</span>
@@ -53,7 +82,7 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
       </div>
 
-      {/* Middle: Quick Search Bar */}
+      {/* ── Middle: Search Bar ──────────────────────────────────────── */}
       <div className="hidden lg:flex items-center flex-1 max-w-md mx-4">
         <div className="relative w-full">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-surface-500">
@@ -69,15 +98,16 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
       </div>
 
-      {/* Right Actions: System Status Badge, Notification Popover, User Menu */}
+      {/* ── Right: Sync Badge, Notifications, User Menu ─────────────── */}
       <div className="flex items-center gap-3">
+
         {/* Real-time sync badge */}
         <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>Grid Sync Active</span>
         </div>
 
-        {/* Notifications Popover */}
+        {/* ── Notifications Popover ──────────────────────────────────── */}
         <div className="relative">
           <button
             onClick={() => {
@@ -95,7 +125,7 @@ export default function Navbar({ onToggleSidebar }) {
             )}
           </button>
 
-          {/* Notifications Dropdown Card */}
+          {/* Notifications Dropdown */}
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 glass-card p-4 shadow-2xl border border-surface-700 animate-slide-down z-50">
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-700/50">
@@ -126,7 +156,7 @@ export default function Navbar({ onToggleSidebar }) {
           )}
         </div>
 
-        {/* User Menu Dropdown */}
+        {/* ── User Menu Dropdown ─────────────────────────────────────── */}
         <div className="relative">
           <button
             onClick={() => {
@@ -134,7 +164,9 @@ export default function Navbar({ onToggleSidebar }) {
               setShowNotifications(false);
             }}
             className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-surface-800 transition-colors border border-transparent hover:border-surface-700"
+            aria-label="Open user menu"
           >
+            {/* Avatar initials */}
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary-600 to-secondary-600 text-white font-bold text-xs flex items-center justify-center shadow-md">
               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'EV'}
             </div>
@@ -149,29 +181,58 @@ export default function Navbar({ onToggleSidebar }) {
             </svg>
           </button>
 
+          {/* Dropdown Menu */}
           {showUserMenu && (
             <div className="absolute right-0 mt-2 w-56 glass-card p-2 shadow-2xl border border-surface-700 animate-slide-down z-50">
+
+              {/* User Info Header */}
               <div className="px-3 py-2 border-b border-surface-700/50 mb-1">
                 <p className="text-xs font-bold text-white">{user?.name}</p>
                 <p className="text-[11px] text-surface-400 truncate">{user?.email}</p>
               </div>
+
+              {/* Profile Link */}
               <div className="py-1">
-                <a href="#profile" className="flex items-center gap-2.5 px-3 py-2 text-xs text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
+                >
                   <svg className="w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  Profile & Settings
-                </a>
+                  Profile &amp; Settings
+                </Link>
               </div>
+
+              {/* Sign Out */}
               <div className="border-t border-surface-700/50 pt-1 mt-1">
                 <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  id="logout-btn"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400
+                    hover:bg-red-500/10 rounded-lg transition-colors
+                    disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Sign Out
+                  {isLoggingOut ? (
+                    <>
+                      {/* Inline spinner */}
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      Signing out…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sign Out
+                    </>
+                  )}
                 </button>
               </div>
             </div>
