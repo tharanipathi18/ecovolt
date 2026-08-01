@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { createNotification } from './notification.service.js';
 
 /** Get user's registered vehicles */
 export const getUserVehicles = async (userId) => {
@@ -8,10 +9,10 @@ export const getUserVehicles = async (userId) => {
   });
 };
 
-/** Register a new vehicle */
+/** Register a new vehicle (No admin approval required for EV users) */
 export const registerVehicle = async (userId, data) => {
   const existingPlate = await prisma.vehicle.findUnique({
-    where: { licensePlate: data.licensePlate.toUpperCase() },
+    where: { licensePlate: data.licensePlate.toUpperCase().trim() },
   });
   if (existingPlate) {
     const error = new Error('A vehicle with this license plate is already registered');
@@ -30,6 +31,53 @@ export const registerVehicle = async (userId, data) => {
       connectorType: data.connectorType,
       ownerId: userId,
     },
+  });
+};
+
+/** Update existing vehicle */
+export const updateVehicle = async (vehicleId, userId, data) => {
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+  if (!vehicle) {
+    const error = new Error('Vehicle not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (vehicle.ownerId !== userId) {
+    const error = new Error('Not authorized to edit this vehicle');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: {
+      make: data.make ? data.make.trim() : vehicle.make,
+      model: data.model ? data.model.trim() : vehicle.model,
+      year: data.year ? parseInt(data.year, 10) : vehicle.year,
+      licensePlate: data.licensePlate ? data.licensePlate.toUpperCase().trim() : vehicle.licensePlate,
+      batteryCapacityKwh: data.batteryCapacityKwh ? parseFloat(data.batteryCapacityKwh) : vehicle.batteryCapacityKwh,
+      connectorType: data.connectorType || vehicle.connectorType,
+    },
+  });
+};
+
+/** Delete / Deactivate vehicle */
+export const deleteVehicle = async (vehicleId, userId) => {
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+  if (!vehicle) {
+    const error = new Error('Vehicle not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (vehicle.ownerId !== userId) {
+    const error = new Error('Not authorized to delete this vehicle');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: { isActive: false },
   });
 };
 
@@ -59,98 +107,38 @@ export const getVehicleDetails = async (vehicleId, userId) => {
   return { vehicle, batteryReport: latestBatteryReport };
 };
 
-/** Get nearby charging stations (auto-seeds default stations if 0 exist in DB) */
+/** Get ONLY Approved Charging Stations for EV Users */
 export const getNearbyStations = async (_longitude = -118.2437, _latitude = 34.0522, _radiusKm = 20) => {
-  let ports = await prisma.chargingPort.findMany({
+  return prisma.chargingPort.findMany({
     where: {
+      isApproved: true,
+      approvalStatus: 'APPROVED',
       status: { in: ['available', 'occupied', 'reserved'] },
       isPublic: true,
     },
     include: {
+      operator: { select: { id: true, name: true, email: true } },
       linkedGenerators: { select: { id: true, name: true, type: true, capacityKw: true } },
     },
+    orderBy: { createdAt: 'desc' },
     take: 20,
   });
-
-  // Auto-seed initial public charging ports if DB is empty
-  if (ports.length === 0) {
-    let operator = await prisma.user.findFirst({ where: { role: 'ev_port' } });
-    if (!operator) {
-      operator = await prisma.user.findFirst({ where: { role: 'admin' } });
-    }
-    if (!operator) {
-      operator = await prisma.user.findFirst();
-    }
-
-    if (operator) {
-      const defaultPorts = [
-        {
-          operatorId: operator.id,
-          stationName: 'Downtown Solar Charging Hub',
-          portIdentifier: 'PORT-SOLAR-01',
-          connectorType: 'ccs_2',
-          maxPowerOutputKw: 150,
-          status: 'available',
-          pricingRatePerKwh: 0.32,
-          isPublic: true,
-          locationAddress: '100 Solar Way',
-          locationCity: 'San Francisco',
-        },
-        {
-          operatorId: operator.id,
-          stationName: 'Metro Wind Power Station',
-          portIdentifier: 'PORT-WIND-02',
-          connectorType: 'ccs_2',
-          maxPowerOutputKw: 120,
-          status: 'available',
-          pricingRatePerKwh: 0.28,
-          isPublic: true,
-          locationAddress: '250 Metro Blvd',
-          locationCity: 'San Francisco',
-        },
-        {
-          operatorId: operator.id,
-          stationName: 'Suburban Clean Energy Hub',
-          portIdentifier: 'PORT-CLEAN-03',
-          connectorType: 'type_2',
-          maxPowerOutputKw: 50,
-          status: 'available',
-          pricingRatePerKwh: 0.25,
-          isPublic: true,
-          locationAddress: '50 Suburban Park',
-          locationCity: 'San Francisco',
-        },
-      ];
-
-      for (const p of defaultPorts) {
-        await prisma.chargingPort.create({ data: p });
-      }
-
-      ports = await prisma.chargingPort.findMany({
-        where: {
-          status: { in: ['available', 'occupied', 'reserved'] },
-          isPublic: true,
-        },
-        include: {
-          linkedGenerators: { select: { id: true, name: true, type: true, capacityKw: true } },
-        },
-        take: 20,
-      });
-    }
-  }
-
-  return ports;
 };
 
-/** Reserve a charging slot at a port */
+/** Reserve a charging slot at a port (Status = PENDING for station owner approval) */
 export const createBooking = async (userId, data) => {
   const { chargingPortId, vehicleId, scheduledStartTime, durationMinutes } = data;
 
-  // 1. Verify charging port exists
+  // 1. Verify charging port exists & is approved
   const port = await prisma.chargingPort.findUnique({ where: { id: chargingPortId } });
   if (!port) {
     const error = new Error('Charging port not found');
     error.statusCode = 404;
+    throw error;
+  }
+  if (!port.isApproved || port.approvalStatus !== 'APPROVED') {
+    const error = new Error('Charging station has not been approved for public bookings yet');
+    error.statusCode = 403;
     throw error;
   }
 
@@ -198,13 +186,13 @@ export const createBooking = async (userId, data) => {
     throw error;
   }
 
-  // 4. Create booking with Prisma into Supabase DB
+  // 4. Create booking with Prisma into Supabase DB (Status = pending)
   const bookingRef = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
   const rate = port.pricingRatePerKwh || 0.35;
   const estimatedEnergyKwh = Number(((port.maxPowerOutputKw * (duration / 60)) * 0.8).toFixed(2));
   const estimatedCost = Number((estimatedEnergyKwh * rate).toFixed(2));
 
-  return prisma.booking.create({
+  const booking = await prisma.booking.create({
     data: {
       bookingReference: bookingRef,
       userId,
@@ -213,17 +201,34 @@ export const createBooking = async (userId, data) => {
       scheduledStartTime: requestedStart,
       durationMinutes: duration,
       estimatedCost,
-      status: 'confirmed',
+      status: 'pending', // ⚡ PENDING approval by Charging Station Owner
     },
     include: {
       chargingPort: {
-        select: { id: true, stationName: true, portIdentifier: true, connectorType: true, pricingRatePerKwh: true },
+        select: { id: true, stationName: true, portIdentifier: true, connectorType: true, pricingRatePerKwh: true, operatorId: true },
       },
       vehicle: {
         select: { id: true, make: true, model: true, licensePlate: true },
       },
     },
   });
+
+  // 5. Notify Station Owner & User
+  await createNotification({
+    userId: port.operatorId,
+    title: 'Booking Request Pending ⏳',
+    message: `New slot booking request (${bookingRef}) at ${port.stationName} from ${vehicle.make} ${vehicle.model}. Please accept or reject in your dashboard.`,
+    type: 'warning',
+  });
+
+  await createNotification({
+    userId,
+    title: 'Booking Submitted ⏳',
+    message: `Your booking request (${bookingRef}) at ${port.stationName} has been submitted and is pending station owner approval.`,
+    type: 'info',
+  });
+
+  return booking;
 };
 
 /** Get user's active & past bookings */
@@ -250,18 +255,18 @@ export const getUserChargingHistory = async (userId) => {
   });
 };
 
-/** Get user's sustainability metrics */
+/** Get user's sustainability metrics directly from Supabase DB */
 export const getSustainabilityMetrics = async (userId) => {
   const sessions = await prisma.chargingSession.findMany({
     where: { userId, status: 'completed' },
   });
 
-  const totalKwh = sessions.reduce((acc, s) => acc + s.energyConsumedKwh, 0);
+  const totalKwh = sessions.reduce((acc, s) => acc + (s.energyConsumedKwh || 0), 0);
   const co2SavedKg = Number((totalKwh * 0.705).toFixed(1));
   const treesEquivalent = Number((co2SavedKg / 20).toFixed(1));
   const avgCleanPercentage = sessions.length > 0
-    ? Math.round(sessions.reduce((acc, s) => acc + s.renewableEnergyPercentage, 0) / sessions.length)
-    : 88;
+    ? Math.round(sessions.reduce((acc, s) => acc + (s.renewableEnergyPercentage || 100), 0) / sessions.length)
+    : 0;
 
   return {
     totalSessionsCount: sessions.length,
@@ -284,9 +289,9 @@ export const updateUserProfile = async (userId, data) => {
   return prisma.user.update({
     where: { id: userId },
     data: {
-      name: data.name || user.name,
-      phone: data.phone || user.phone,
-      addressStreet: data.address || user.addressStreet,
+      name: data.name ? data.name.trim() : user.name,
+      phone: data.phone ? data.phone.trim() : user.phone,
+      addressStreet: data.address ? data.address.trim() : user.addressStreet,
     },
   });
 };

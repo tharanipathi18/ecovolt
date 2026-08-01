@@ -1,134 +1,103 @@
 import asyncHandler from 'express-async-handler';
 import * as authService from '../services/auth.service.js';
-import config from '../config/env.js';
 
 /**
- * Helper — send token response with HTTP-only cookie.
+ * @desc    Authenticate with Google OAuth profile
+ * @route   POST /api/auth/google
+ * @access  Public
  */
-const sendTokenResponse = (res, statusCode, user, token, message) => {
-  const cookieOptions = {
-    expires: new Date(Date.now() + config.jwtCookieExpire * 24 * 60 * 60 * 1000),
-    httpOnly: true,
-    secure: config.nodeEnv === 'production',
-    sameSite: 'strict',
-  };
-
-  res
-    .status(statusCode)
-    .cookie('token', token, cookieOptions)
-    .json({
-      success: true,
-      message,
-      data: { user, token },
-    });
-};
+export const googleAuth = asyncHandler(async (req, res) => {
+  const result = await authService.googleOAuthLogin(req.body);
+  res.status(200).json({
+    success: true,
+    message: 'Google authentication successful',
+    data: result,
+  });
+});
 
 /**
- * @desc    Register a new user
+ * @desc    Register a new user account
  * @route   POST /api/auth/register
  * @access  Public
  */
 export const register = asyncHandler(async (req, res) => {
-  const { user, token } = await authService.registerUser(req.body);
-  sendTokenResponse(res, 201, user, token, 'Registration successful');
+  const result = await authService.registerUser(req.body);
+  res.status(201).json({
+    success: true,
+    message: 'User registered successfully',
+    data: result,
+  });
 });
 
 /**
- * @desc    Login user & get token
+ * @desc    Authenticate user & get JWT token
  * @route   POST /api/auth/login
  * @access  Public
  */
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  const { user, token } = await authService.loginUser({ email, password });
-  sendTokenResponse(res, 200, user, token, 'Login successful');
-});
-
-/**
- * @desc    Get current logged-in user profile
- * @route   GET /api/auth/me
- * @route   GET /api/auth/profile
- * @access  Private
- *
- * NOTE: The `protect` middleware already verified the JWT and loaded the
- * full user object (minus password) into req.user via a Prisma select.
- * We return that directly — no second DB round-trip needed.
- */
-export const getMe = asyncHandler(async (req, res) => {
+  const result = await authService.loginUser(req.body);
   res.status(200).json({
     success: true,
-    message: 'Profile retrieved successfully',
-    data: { user: req.user },
+    message: 'Login successful',
+    data: result,
   });
 });
 
-// Alias — /api/auth/profile points to the same handler
-export const getProfile = getMe;
-
 /**
- * @desc    Logout user — clear cookie
- * @route   POST /api/auth/logout
+ * @desc    Get currently logged in user profile
+ * @route   GET /api/auth/me
  * @access  Private
  */
-export const logout = asyncHandler(async (_req, res) => {
-  res
-    .status(200)
-    .cookie('token', 'none', {
-      expires: new Date(Date.now() + 5 * 1000), // 5 seconds
-      httpOnly: true,
-    })
-    .json({
-      success: true,
-      message: 'Logged out successfully',
-      data: null,
-    });
+export const getMe = asyncHandler(async (req, res) => {
+  const user = await authService.getUserProfile(req.user.id);
+  res.status(200).json({
+    success: true,
+    data: { user },
+  });
 });
 
 /**
- * @desc    Forgot password — generate reset token
+ * @desc    Initiate password reset flow
  * @route   POST /api/auth/forgot-password
  * @access  Public
  */
 export const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-
-  const resetToken = await authService.forgotPassword(email);
-
-  // In production, send this via email.
-  // For development, return in response.
-  const resetUrl = `${config.corsOrigin}/reset-password/${resetToken}`;
-
+  const resetToken = await authService.forgotPassword(req.body.email);
   res.status(200).json({
     success: true,
-    message: 'Password reset instructions have been sent to your email',
-    data: config.nodeEnv === 'development' ? { resetToken, resetUrl } : null,
+    message: 'Password reset email dispatched',
+    data: { resetToken },
   });
 });
 
 /**
- * @desc    Reset password using token
+ * @desc    Reset password using reset token
  * @route   POST /api/auth/reset-password/:token
  * @access  Public
  */
 export const resetPassword = asyncHandler(async (req, res) => {
-  const { token: resetToken } = req.params;
-  const { password } = req.body;
-
-  const { user, token } = await authService.resetPassword(resetToken, password);
-  sendTokenResponse(res, 200, user, token, 'Password reset successful');
+  const result = await authService.resetPassword(req.params.token, req.body.password);
+  res.status(200).json({
+    success: true,
+    message: 'Password reset successfully',
+    data: result,
+  });
 });
 
 /**
- * @desc    Change password (authenticated)
+ * @desc    Change password for authenticated user
  * @route   PUT /api/auth/change-password
  * @access  Private
  */
 export const changePassword = asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  const { user, token } = await authService.changePassword(
+  const result = await authService.changePassword(
     req.user.id,
-    currentPassword,
-    newPassword,
+    req.body.currentPassword,
+    req.body.newPassword,
   );
-  sendTokenResponse(res, 200, user, token, 'Password changed successfully');
+  res.status(200).json({
+    success: true,
+    message: 'Password changed successfully',
+    data: result,
+  });
 });

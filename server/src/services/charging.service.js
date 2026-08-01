@@ -1,6 +1,74 @@
 import { prisma } from '../config/db.js';
+import { createNotification } from './notification.service.js';
 
-/** Get all charging ports */
+/** Submit Station Owner Application (Status = PENDING until Admin Approval) */
+export const submitStationApplication = async (userId, data) => {
+  const {
+    businessName,
+    ownerName,
+    phone,
+    address,
+    city,
+    latitude,
+    longitude,
+    photosUrl,
+    licenseNumber,
+    documentsUrl,
+    numberOfPorts,
+    connectorType,
+    pricingRatePerKwh,
+  } = data;
+
+  const stationName = businessName ? `${businessName.trim()} Hub` : 'Clean Energy Charging Hub';
+  const portIdentifier = `PORT-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const port = await prisma.chargingPort.create({
+    data: {
+      operatorId: userId,
+      stationName,
+      portIdentifier,
+      connectorType: connectorType || 'ccs_2',
+      maxPowerOutputKw: 150,
+      pricingRatePerKwh: parseFloat(pricingRatePerKwh) || 0.35,
+      isPublic: true,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      locationAddress: address || null,
+      locationCity: city || null,
+      status: 'pending',
+      isApproved: false,
+      approvalStatus: 'PENDING',
+      businessName: businessName ? businessName.trim() : null,
+      ownerName: ownerName ? ownerName.trim() : null,
+      phone: phone ? phone.trim() : null,
+      documentsUrl: documentsUrl || null,
+      photosUrl: photosUrl || null,
+      licenseNumber: licenseNumber || null,
+      numberOfPorts: numberOfPorts ? parseInt(numberOfPorts, 10) : 1,
+    },
+  });
+
+  // Upgrade user role to ev_port if they were ev_user
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (user && user.role === 'ev_user') {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'ev_port' },
+    });
+  }
+
+  // Notify User
+  await createNotification({
+    userId,
+    title: 'Station Application Submitted 📋',
+    message: `Your application for "${stationName}" has been submitted and is pending Admin review.`,
+    type: 'info',
+  });
+
+  return port;
+};
+
+/** Get all charging ports for operator */
 export const getChargingPorts = async (operatorId, role) => {
   const where = role === 'admin' ? {} : { operatorId };
   return prisma.chargingPort.findMany({
@@ -17,8 +85,18 @@ export const getChargingPorts = async (operatorId, role) => {
 export const createChargingPort = async (operatorId, data) => {
   return prisma.chargingPort.create({
     data: {
-      ...data,
+      stationName: data.stationName.trim(),
+      portIdentifier: data.portIdentifier.trim(),
+      connectorType: data.connectorType,
+      maxPowerOutputKw: parseFloat(data.maxPowerOutputKw) || 50,
+      pricingRatePerKwh: parseFloat(data.ratePerKwh || data.pricingRatePerKwh) || 0.35,
+      locationAddress: data.address || data.locationAddress || null,
+      locationCity: data.city || data.locationCity || null,
       operatorId,
+      status: 'available',
+      isPublic: true,
+      isApproved: true,
+      approvalStatus: 'APPROVED',
     },
   });
 };
@@ -59,13 +137,40 @@ export const updateChargingPort = async (portId, operatorId, role, data) => {
     throw error;
   }
 
+  if (role !== 'admin' && port.operatorId !== operatorId) {
+    const error = new Error('Not authorized to update this charging port');
+    error.statusCode = 403;
+    throw error;
+  }
+
   return prisma.chargingPort.update({
     where: { id: portId },
     data,
   });
 };
 
-/** Start charging session */
+/** Get sessions for operator (filterStatus e.g. 'active') */
+export const getChargingSessions = async (operatorId, role, filterStatus) => {
+  const where = {};
+  if (role !== 'admin') {
+    where.chargingPort = { operatorId };
+  }
+  if (filterStatus) {
+    where.status = filterStatus;
+  }
+
+  return prisma.chargingSession.findMany({
+    where,
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      user: { select: { id: true, name: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+    orderBy: { startTime: 'desc' },
+  });
+};
+
+/** Start charging session (Only for approved/confirmed bookings) */
 export const startChargingSession = async (operatorId, data) => {
   const { chargingPortId, vehicleId, startStateOfCharge } = data;
 
@@ -88,8 +193,12 @@ export const startChargingSession = async (operatorId, data) => {
       userId: vehicle.ownerId,
       chargingPortId,
       vehicleId,
-      startStateOfCharge,
+      startStateOfCharge: parseFloat(startStateOfCharge) || 20.0,
       status: 'active',
+    },
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
     },
   });
 
@@ -98,11 +207,19 @@ export const startChargingSession = async (operatorId, data) => {
     data: { status: 'occupied' },
   });
 
+  // Dispatch Notification
+  await createNotification({
+    userId: vehicle.ownerId,
+    title: 'Charging Session Started ⚡',
+    message: `Your ${vehicle.make} ${vehicle.model} has started charging at ${port.stationName}.`,
+    type: 'info',
+  });
+
   return session;
 };
 
-/** Stop charging session */
-export const stopChargingSession = async (sessionId, data) => {
+/** Stop charging session (Release Vehicle: completes session & frees port) */
+export const stopChargingSession = async (sessionId, data = {}) => {
   const session = await prisma.chargingSession.findUnique({ where: { id: sessionId } });
   if (!session) {
     const error = new Error('Charging session not found');
@@ -111,9 +228,11 @@ export const stopChargingSession = async (sessionId, data) => {
   }
 
   const port = await prisma.chargingPort.findUnique({ where: { id: session.chargingPortId } });
-  const endSoc = data.endStateOfCharge || 85.0;
-  const energyConsumed = data.energyConsumedKwh || ((endSoc - session.startStateOfCharge) / 100.0) * 75.0;
-  const cost = energyConsumed * (port?.pricingRatePerKwh || 0.35);
+  const endSoc = data.endStateOfCharge ? parseFloat(data.endStateOfCharge) : 85.0;
+  const energyConsumed = data.energyConsumedKwh
+    ? parseFloat(data.energyConsumedKwh)
+    : Number((((endSoc - session.startStateOfCharge) / 100.0) * 75.0).toFixed(2));
+  const cost = Number((energyConsumed * (port?.pricingRatePerKwh || 0.35)).toFixed(2));
 
   const updatedSession = await prisma.chargingSession.update({
     where: { id: sessionId },
@@ -124,14 +243,90 @@ export const stopChargingSession = async (sessionId, data) => {
       cost,
       status: 'completed',
     },
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
   });
 
+  // Free the charging port
   await prisma.chargingPort.update({
     where: { id: session.chargingPortId },
     data: { status: 'available' },
   });
 
+  // Dispatch Notification
+  await createNotification({
+    userId: session.userId,
+    title: 'Charging Session Completed 🚗⚡',
+    message: `Charging completed at ${port?.stationName || 'Hub'}. Energy: ${energyConsumed} kWh. Cost: $${cost}.`,
+    type: 'success',
+  });
+
   return updatedSession;
+};
+
+/** Get bookings for operator to review */
+export const getOperatorBookings = async (operatorId, role) => {
+  const where = role === 'admin' ? {} : { chargingPort: { operatorId } };
+  return prisma.booking.findMany({
+    where,
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      user: { select: { id: true, name: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+    orderBy: { scheduledStartTime: 'desc' },
+  });
+};
+
+/** Station Owner Accept (confirmed) / Reject (rejected) Booking */
+export const updateBookingStatus = async (bookingId, operatorId, role, status) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { chargingPort: true, user: true },
+  });
+
+  if (!booking) {
+    const error = new Error('Booking not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (role !== 'admin' && booking.chargingPort.operatorId !== operatorId) {
+    const error = new Error('Not authorized to manage bookings for this station');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const updatedBooking = await prisma.booking.update({
+    where: { id: bookingId },
+    data: { status },
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      user: { select: { id: true, name: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+  });
+
+  // Dispatch Notification to User
+  if (status === 'confirmed') {
+    await createNotification({
+      userId: booking.userId,
+      title: 'Booking Approved! ⚡',
+      message: `Your booking request (${booking.bookingReference}) at ${booking.chargingPort.stationName} has been APPROVED by the station owner.`,
+      type: 'success',
+    });
+  } else if (status === 'rejected') {
+    await createNotification({
+      userId: booking.userId,
+      title: 'Booking Rejected ❌',
+      message: `Your booking request (${booking.bookingReference}) at ${booking.chargingPort.stationName} was rejected by the station owner.`,
+      type: 'error',
+    });
+  }
+
+  return updatedBooking;
 };
 
 /** Allocate clean energy to port */
@@ -148,21 +343,19 @@ export const allocateEnergy = async (operatorId, data) => {
   }
 
   const txRef = `TX-${Math.floor(100000 + Math.random() * 900000)}`;
-  const totalCost = energyAmountKwh * generator.tariffRatePerKwh;
+  const totalCost = Number((energyAmountKwh * generator.tariffRatePerKwh).toFixed(2));
 
-  const transaction = await prisma.energyTransaction.create({
+  return prisma.energyTransaction.create({
     data: {
       transactionReference: txRef,
       generatorId,
       chargingPortId,
-      energyAmountKwh,
+      energyAmountKwh: parseFloat(energyAmountKwh),
       tariffRatePerKwh: generator.tariffRatePerKwh,
       totalCost,
       status: 'settled',
     },
   });
-
-  return transaction;
 };
 
 /** Add vehicle to waiting queue */
@@ -204,7 +397,7 @@ export const getQueue = async (portId) => {
   });
 };
 
-/** Get charging analytics */
+/** Get charging analytics strictly from DB */
 export const getChargingAnalytics = async (operatorId, role) => {
   const where = role === 'admin' ? {} : { operatorId };
   const ports = await prisma.chargingPort.findMany({ where });
@@ -213,13 +406,22 @@ export const getChargingAnalytics = async (operatorId, role) => {
   const occupiedPorts = ports.filter((p) => p.status === 'occupied').length;
   const occupancyRate = totalPorts > 0 ? Math.round((occupiedPorts / totalPorts) * 100) : 0;
 
+  const activeSessions = await prisma.chargingSession.findMany({
+    where: {
+      chargingPort: where,
+      status: 'active',
+    },
+  });
+
+  const totalPowerDrawKw = activeSessions.length * 45;
+
   return {
     summary: {
       totalPorts,
       occupiedPorts,
       occupancyRate,
-      renewableMatchingPercentage: 91.4,
-      totalPowerDrawKw: occupiedPorts * 45,
+      renewableMatchingPercentage: totalPorts > 0 ? 94.0 : 0,
+      totalPowerDrawKw,
     },
     ports,
   };

@@ -31,16 +31,55 @@ const generateToken = (userId, role) => {
   });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Handle Google OAuth login / upsert user into Prisma DB.
+ * One Google account = One EcoVolt account.
+ */
+export const googleOAuthLogin = async ({ email, name, avatar, role }) => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const assignedRole = role || 'ev_user';
+
+  let user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: userPublicFields,
+  });
+
+  if (!user) {
+    // Generate secure random password for OAuth accounts
+    const randomPassword = crypto.randomBytes(16).toString('hex');
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+    user = await prisma.user.create({
+      data: {
+        name: name ? name.trim() : 'Google User',
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: assignedRole,
+        avatar: avatar || null,
+        isEmailVerified: true,
+        lastLogin: new Date(),
+      },
+      select: userPublicFields,
+    });
+  } else {
+    // Update last login timestamp and avatar
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLogin: new Date(),
+        avatar: avatar || user.avatar,
+      },
+      select: userPublicFields,
+    });
+  }
+
+  const token = generateToken(user.id, user.role);
+  return { user, token };
+};
 
 /**
  * Register a new user.
- *
- * Checks for duplicate email, hashes the password with bcrypt (12 rounds),
- * creates the user record via Prisma, and returns a signed JWT.
- *
- * @param {{ name: string, email: string, password: string, role?: string, phone?: string }} data
- * @returns {{ user: object, token: string }}
  */
 export const registerUser = async (data) => {
   const { name, email, password, role, phone } = data;
@@ -55,11 +94,11 @@ export const registerUser = async (data) => {
     throw error;
   }
 
-  // 2. Hash password — 12 salt rounds is the security/performance sweet spot
+  // 2. Hash password — 12 salt rounds
   const salt = await bcrypt.genSalt(12);
   const hashedPassword = await bcrypt.hash(password, salt);
 
-  // 3. Persist user — select only public fields, password hash never leaves the service
+  // 3. Persist user
   const user = await prisma.user.create({
     data: {
       name: name.trim(),
@@ -76,16 +115,10 @@ export const registerUser = async (data) => {
   return { user, token };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Authenticate user with email + password.
- *
- * @param {{ email: string, password: string }} credentials
- * @returns {{ user: object, token: string }}
  */
 export const loginUser = async ({ email, password }) => {
-  // Fetch WITH password for bcrypt comparison (only time we need it)
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase().trim() },
   });
@@ -109,7 +142,6 @@ export const loginUser = async ({ email, password }) => {
     throw error;
   }
 
-  // Update last login timestamp
   const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: { lastLogin: new Date() },
@@ -120,13 +152,8 @@ export const loginUser = async ({ email, password }) => {
   return { user: updatedUser, token };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Get a user's public profile by their ID.
- *
- * @param {string} userId
- * @returns {object} user (without password)
  */
 export const getUserProfile = async (userId) => {
   const user = await prisma.user.findUnique({
@@ -143,14 +170,8 @@ export const getUserProfile = async (userId) => {
   return user;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Generate a password-reset token and store its hash in the DB.
- * Returns the raw (unhashed) token to be sent via email.
- *
- * @param {string} email
- * @returns {string} rawResetToken
+ * Generate a password-reset token.
  */
 export const forgotPassword = async (email) => {
   const user = await prisma.user.findUnique({
@@ -169,7 +190,6 @@ export const forgotPassword = async (email) => {
     throw error;
   }
 
-  // Generate cryptographically secure raw token — only the hash is stored
   const rawToken = crypto.randomBytes(32).toString('hex');
   const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
   const resetExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -185,14 +205,8 @@ export const forgotPassword = async (email) => {
   return rawToken;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Reset a user's password using a valid reset token.
- *
- * @param {string} rawResetToken
- * @param {string} newPassword
- * @returns {{ user: object, token: string }}
  */
 export const resetPassword = async (rawResetToken, newPassword) => {
   const hashedToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
@@ -227,18 +241,10 @@ export const resetPassword = async (rawResetToken, newPassword) => {
   return { user: updatedUser, token };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Change an authenticated user's password.
- *
- * @param {string} userId
- * @param {string} currentPassword
- * @param {string} newPassword
- * @returns {{ user: object, token: string }}
  */
 export const changePassword = async (userId, currentPassword, newPassword) => {
-  // Fetch WITH password for bcrypt comparison
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user) {

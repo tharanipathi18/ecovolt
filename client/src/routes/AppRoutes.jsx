@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 
 // Auth guards
 import { ProtectedRoute, GuestRoute } from '@components/auth';
@@ -6,6 +6,7 @@ import { ProtectedRoute, GuestRoute } from '@components/auth';
 // Layouts
 import MainLayout from '@components/layout/MainLayout';
 import PublicLayout from '@pages/public/PublicLayout';
+import AdminLayout from '@components/layout/AdminLayout';
 
 // Public pages
 import Home from '@pages/public/Home';
@@ -17,6 +18,7 @@ import Contact from '@pages/public/Contact';
 import Login from '@pages/auth/Login';
 import Register from '@pages/auth/Register';
 import ForgotPassword from '@pages/auth/ForgotPassword';
+import AdminLogin from '@pages/admin/AdminLogin';
 
 // Role Dashboard pages
 import Dashboard from '@pages/dashboard/Dashboard';
@@ -28,31 +30,17 @@ import AdminPanel from '@pages/admin/AdminPanel';
 import NotFound from '@pages/NotFound';
 
 /**
- * Complete Application Route Configuration.
+ * Complete Application Route Configuration with Standalone Hidden Admin Portal.
  *
- * Route guard logic:
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │  GuestRoute     — allows only unauthenticated users                    │
- * │                   authenticated users → redirected to their dashboard  │
- * │                                                                         │
- * │  ProtectedRoute — allows only authenticated users                      │
- * │                   unauthenticated → redirected to /login               │
- * │                   with `state.from` so Login can send them back        │
- * │                                                                         │
- * │  ProtectedRoute roles={[...]} — additionally checks user.role          │
- * │                   wrong role → shows Access Denied screen              │
- * └─────────────────────────────────────────────────────────────────────────┘
- *
- * Route nesting:
- *  Public routes        → PublicLayout (navbar + footer, no auth required)
- *  Auth routes          → GuestRoute (standalone pages, no layout)
- *  Dashboard routes     → ProtectedRoute → MainLayout → inner ProtectedRoute
- *                         (double guard: outer checks auth, inner checks role)
+ * Route Structure:
+ *  1. Public Website Routes      → PublicLayout (Home, About, Features, Contact)
+ *  2. Guest Auth Routes          → Login, Register, ForgotPassword
+ *  3. Protected User Dashboards  → MainLayout (Dashboard, Energy, Charging, Fleet)
+ *  4. Dedicated Hidden Admin Portal → AdminLayout (/admin/login & /admin/* protected for role: admin)
  */
 export default function AppRoutes() {
   return (
     <Routes>
-
       {/* ─── Public Website Routes (Wrapped in PublicLayout) ──────────────── */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
@@ -61,13 +49,7 @@ export default function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
       </Route>
 
-      {/* ─── Guest-Only Auth Routes ───────────────────────────────────────── */}
-      {/*
-        GuestRoute behaviour:
-        • loading  → full-screen spinner (prevents flash)
-        • isAuthenticated → <Navigate to={getDashboardPath()} replace />
-        • guest    → renders the child page
-      */}
+      {/* ─── Guest Auth Routes ────────────────────────────────────────────── */}
       <Route
         path="/login"
         element={
@@ -93,18 +75,32 @@ export default function AppRoutes() {
         }
       />
 
-      {/* ─── Protected Dashboard Routes ───────────────────────────────────── */}
-      {/*
-        Outer ProtectedRoute (no roles):
-          • loading        → full-screen spinner
-          • !isAuthenticated → <Navigate to="/login" state={{ from: location }} replace />
-          • authenticated  → renders MainLayout (sidebar + topbar shell)
-            └── Outlet renders the matched child route
+      {/* ─── Dedicated Admin Portal Login ──────────────────────────────────── */}
+      <Route path="/admin/login" element={<AdminLogin />} />
 
-        Inner ProtectedRoute (with roles):
-          • wrong role → Access Denied screen with Link back to /dashboard
-          • correct role → renders the page component
-      */}
+      {/* ─── Standalone Hidden Admin Portal (/admin/*) ────────────────────── */}
+      {/* Protected: Only users with role = 'admin' can access. Non-admins see 403 Forbidden */}
+      <Route
+        element={
+          <ProtectedRoute roles={['admin']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin/dashboard" element={<AdminPanel />} />
+        <Route path="/admin/users" element={<AdminPanel />} />
+        <Route path="/admin/station-requests" element={<AdminPanel />} />
+        <Route path="/admin/approved-stations" element={<AdminPanel />} />
+        <Route path="/admin/vehicles" element={<AdminPanel />} />
+        <Route path="/admin/bookings" element={<AdminPanel />} />
+        <Route path="/admin/sessions" element={<AdminPanel />} />
+        <Route path="/admin/reports" element={<AdminPanel />} />
+        <Route path="/admin/notifications" element={<AdminPanel />} />
+        <Route path="/admin/settings" element={<AdminPanel />} />
+      </Route>
+
+      {/* ─── Standard User Dashboard Routes ───────────────────────────────── */}
       <Route
         element={
           <ProtectedRoute>
@@ -112,7 +108,6 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* /dashboard — EV Users & Admins */}
         <Route
           path="/dashboard"
           element={
@@ -122,7 +117,6 @@ export default function AppRoutes() {
           }
         />
 
-        {/* /energy — Energy Generators & Admins */}
         <Route
           path="/energy"
           element={
@@ -132,7 +126,6 @@ export default function AppRoutes() {
           }
         />
 
-        {/* /charging — Port Operators & Admins */}
         <Route
           path="/charging"
           element={
@@ -142,7 +135,6 @@ export default function AppRoutes() {
           }
         />
 
-        {/* /fleet — Fleet Managers & Admins */}
         <Route
           path="/fleet"
           element={
@@ -151,21 +143,10 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
-        {/* /admin — Admins only */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute roles={['admin']}>
-              <AdminPanel />
-            </ProtectedRoute>
-          }
-        />
       </Route>
 
       {/* ─── 404 Catch-All ────────────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />
-
     </Routes>
   );
 }

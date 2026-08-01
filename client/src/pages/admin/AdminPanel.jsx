@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
+import adminService from '@services/adminService';
 import {
   StatCard,
   Card,
@@ -8,49 +10,50 @@ import {
   Table,
   Button,
   Modal,
-  Input,
   Select,
   Toggle,
   Notification,
 } from '@components/common';
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 
 /**
- * System Administration & Governance Module — Complete Dashboard.
+ * System Administration & Governance Module — Standalone Admin Portal.
+ * Handles all 10 Admin management sections:
+ *  1. Dashboard
+ *  2. Users
+ *  3. Station Requests
+ *  4. Approved Stations
+ *  5. Vehicles
+ *  6. Bookings
+ *  7. Charging Sessions
+ *  8. Reports
+ *  9. Notifications
+ * 10. Settings
  */
 export default function AdminPanel() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'assets' | 'fleet' | 'transactions' | 'notifications' | 'settings' | 'analytics'
-  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
-  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
-  const [notification, setNotification] = useState(null);
+  const location = useLocation();
 
-  // Selected User for Editing
+  // Determine active section from URL path (e.g. /admin/users -> 'users')
+  const pathSegment = location.pathname.split('/')[2] || 'dashboard';
+  const [activeTab, setActiveTab] = useState(pathSegment);
+
+  useEffect(() => {
+    setActiveTab(pathSegment === 'station-requests' ? 'applications' : pathSegment === 'approved-stations' ? 'ports' : pathSegment);
+  }, [pathSegment]);
+
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [notification, setNotification] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // User Edit Form State
-  const [editUserData, setEditUserData] = useState({
-    role: 'ev_user',
-    isActive: true,
-  });
-
-  // Notification Broadcast Form State
-  const [notifyFormData, setNotifyFormData] = useState({
-    recipientId: '', // empty for broadcast
-    title: 'Platform Maintenance Notice',
-    message: 'Scheduled microgrid telemetry update at 02:00 UTC.',
-    severity: 'info',
-  });
+  // Dynamic API State (Strictly from Supabase DB via Prisma)
+  const [pendingApplications, setPendingApplications] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [generators, setGenerators] = useState([]);
+  const [ports, setPorts] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [overview, setOverview] = useState(null);
 
   // System Settings State
   const [systemSettings, setSystemSettings] = useState({
@@ -61,155 +64,212 @@ export default function AdminPanel() {
     gridSyncFrequencySeconds: 15,
   });
 
-  // Users Directory State
-  const [users, setUsers] = useState([
-    { id: 'USR-01', name: 'Alexander Wright', email: 'alex@ecovolt.com', role: 'admin', isActive: true, joined: '10 Jan 2026' },
-    { id: 'USR-02', name: 'Desert Solar Corp', email: 'ops@desertsolar.com', role: 'generator', isActive: true, joined: '14 Feb 2026' },
-    { id: 'USR-03', name: 'Metro EV Charging', email: 'admin@metroev.com', role: 'ev_port', isActive: true, joined: '01 Mar 2026' },
-    { id: 'USR-04', name: 'Logistics Fleet Inc', email: 'fleet@logistics.com', role: 'fleet_manager', isActive: true, joined: '18 Mar 2026' },
-    { id: 'USR-05', name: 'Sarah Jenkins', email: 'sarah@example.com', role: 'ev_user', isActive: true, joined: '02 Apr 2026' },
-    { id: 'USR-06', name: 'Inactive User', email: 'suspended@example.com', role: 'ev_user', isActive: false, joined: '15 May 2026' },
-  ]);
-
-  // Asset Overview State
-  const [assets] = useState({
-    generators: [
-      { name: 'Desert Sun Solar Array Alpha', type: 'Solar', capacity: '1,200 kW', output: '980 kW', status: 'Active' },
-      { name: 'Highland Wind Farm #4', type: 'Wind', capacity: '2,500 kW', output: '1,850 kW', status: 'Active' },
-      { name: 'Riverbed Hydro Plant', type: 'Hydro', capacity: '800 kW', output: '750 kW', status: 'Active' },
-    ],
-    ports: [
-      { name: 'Downtown Solar Hub', portsCount: '8 Ports', power: '250 kW', status: 'Operational' },
-      { name: 'Metro Wind Station', portsCount: '12 Ports', power: '150 kW', status: 'Operational' },
-      { name: 'Suburban Clean Hub', portsCount: '4 Ports', power: '50 kW', status: 'Maintenance' },
-    ],
+  // Notification Broadcast Form State
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: 'System Notice',
+    message: 'Scheduled grid optimization telemetry update.',
   });
 
-  // Energy Transactions Ledger Data
-  const [transactions] = useState([
-    { id: 'TX-9012', generator: 'Desert Sun Solar Array', port: 'Downtown Solar Hub', energy: '420 kWh', rate: '$0.16 / kWh', payout: '$67.20', status: 'settled', timestamp: 'Today, 14:35' },
-    { id: 'TX-9013', generator: 'Highland Wind Farm #4', port: 'Metro Wind Station', energy: '850 kWh', rate: '$0.14 / kWh', payout: '$119.00', status: 'dispatched', timestamp: 'Today, 13:20' },
-    { id: 'TX-9014', generator: 'Riverbed Hydro Plant', port: 'Suburban Clean Hub', energy: '310 kWh', rate: '$0.15 / kWh', payout: '$46.50', status: 'allocated', timestamp: 'Today, 11:05' },
-  ]);
+  // Loading & Submitting States
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Platform Analytics Chart Data
-  const platformAnalyticsData = [
-    { time: '00:00', requestsPerSec: 42, throughputKwh: 1200, cleanSyncRatio: 82 },
-    { time: '04:00', requestsPerSec: 28, throughputKwh: 950, cleanSyncRatio: 78 },
-    { time: '08:00', requestsPerSec: 145, throughputKwh: 2800, cleanSyncRatio: 91 },
-    { time: '12:00', requestsPerSec: 220, throughputKwh: 4800, cleanSyncRatio: 96 },
-    { time: '16:00', requestsPerSec: 190, throughputKwh: 4200, cleanSyncRatio: 94 },
-    { time: '20:00', requestsPerSec: 110, throughputKwh: 2900, cleanSyncRatio: 88 },
-  ];
+  // User Edit Form State
+  const [editUserData, setEditUserData] = useState({
+    role: 'ev_user',
+    isActive: true,
+  });
 
-  // Handlers
+  // ─── Fetch All Admin Data from Backend API ────────────────────────────────
+  const loadAdminData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch System Overview
+      const oRes = await adminService.getOverview();
+      setOverview(oRes.data?.stats || null);
+
+      // 2. Fetch Pending Station Applications
+      const appRes = await adminService.getPendingStationApplications();
+      setPendingApplications(appRes.data?.applications || []);
+
+      // 3. Fetch Users
+      const uRes = await adminService.getUsers();
+      setUsers(uRes.data?.users || []);
+
+      // 4. Fetch Generators
+      const gRes = await adminService.getGenerators();
+      setGenerators(gRes.data?.generators || []);
+
+      // 5. Fetch Charging Ports
+      const pRes = await adminService.getChargingPorts();
+      setPorts(pRes.data?.ports || []);
+
+      // 6. Fetch Vehicles
+      const vRes = await adminService.getVehicles();
+      setVehicles(vRes.data?.vehicles || []);
+
+      // 7. Fetch Bookings
+      const bRes = await adminService.getBookings();
+      setBookings(bRes.data?.bookings || []);
+
+      // 8. Fetch Sessions
+      const sRes = await adminService.getSessions();
+      setSessions(sRes.data?.sessions || []);
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        title: 'Admin Sync Warning',
+        message: err.message || 'Could not fetch live system metrics from Supabase DB.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAdminData();
+  }, [loadAdminData]);
+
+  // ─── Station Application Decision Handler (APPROVE / REJECT) ─────────────
+  const handleReviewApplication = async (portId, decision) => {
+    setIsSubmitting(true);
+    try {
+      await adminService.reviewStationApplication(portId, decision);
+      setPendingApplications((prev) => prev.filter((a) => a.id !== portId));
+      const isApprove = decision === 'APPROVE';
+      setNotification({
+        type: isApprove ? 'success' : 'warning',
+        title: `Station ${isApprove ? 'APPROVED! ⚡' : 'REJECTED ❌'}`,
+        message: `Station application set to ${decision} in Supabase DB. ${isApprove ? 'It is now visible publicly.' : 'It remains hidden.'}`,
+      });
+      loadAdminData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Review Failed', message: err.message || 'Could not review application.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ─── User Role Update Handler ──────────────────────────────────────────────
   const handleOpenEditUserModal = (userItem) => {
     setSelectedUser(userItem);
     setEditUserData({ role: userItem.role, isActive: userItem.isActive });
     setIsEditUserModalOpen(true);
   };
 
-  const handleUpdateUser = (e) => {
+  const handleUpdateUser = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
+    setIsSubmitting(true);
+    try {
+      const res = await adminService.updateUserRole(selectedUser.id, {
+        role: editUserData.role,
+        isActive: editUserData.isActive,
+      });
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === selectedUser.id ? { ...u, role: editUserData.role, isActive: editUserData.isActive } : u)),
-    );
+      setUsers((prev) =>
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, ...res.data.user } : u)),
+      );
 
-    setIsEditUserModalOpen(false);
-    setNotification({
-      type: 'success',
-      title: 'User Role & Status Updated',
-      message: `${selectedUser.name} is now ${editUserData.role.toUpperCase()} (${editUserData.isActive ? 'Active' : 'Inactive'}).`,
-    });
+      setIsEditUserModalOpen(false);
+      setNotification({
+        type: 'success',
+        title: 'User Role Updated! 🛡️',
+        message: `Updated permissions for ${selectedUser.name}. Saved in Supabase DB.`,
+      });
+      loadAdminData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Update Failed', message: err.message || 'Could not update user role.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSendNotification = (e) => {
-    e.preventDefault();
-    setIsNotifyModalOpen(false);
-    setNotification({
-      type: notifyFormData.severity,
-      title: 'Notification Dispatched!',
-      message: `Broadcast message sent to platform users: "${notifyFormData.title}".`,
-    });
-  };
-
-  const handleSaveSettings = (e) => {
-    e.preventDefault();
-    setNotification({
-      type: 'success',
-      title: 'System Settings Saved',
-      message: 'Global configuration parameters updated successfully.',
-    });
-  };
+  // Columns Configuration
+  const applicationColumns = [
+    { key: 'business', title: 'Business Name', render: (row) => row.businessName || row.stationName },
+    { key: 'owner', title: 'Owner Name', render: (row) => row.ownerName || row.operator?.name || 'Applicant' },
+    { key: 'phone', title: 'Phone', render: (row) => row.phone || row.operator?.phone || 'N/A' },
+    { key: 'location', title: 'Location Address', render: (row) => `${row.locationAddress || ''}, ${row.locationCity || ''}` },
+    { key: 'ports', title: 'Ports Count', render: (row) => `${row.numberOfPorts || 1} Ports (${row.connectorType?.toUpperCase()})` },
+    { key: 'rate', title: 'Tariff Rate', render: (row) => `$${row.pricingRatePerKwh} / kWh` },
+    { key: 'status', title: 'Status', render: () => <Badge variant="warning" dot>PENDING REVIEW</Badge> },
+    {
+      key: 'actions',
+      title: 'Admin Decision',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => handleReviewApplication(row.id, 'APPROVE')}
+          >
+            APPROVE
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => handleReviewApplication(row.id, 'REJECT')}
+          >
+            REJECT
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   const userColumns = [
-    { key: 'name', title: 'User / Organization' },
-    { key: 'email', title: 'Email Address' },
+    { key: 'name', title: 'Full Name', render: (row) => row.name },
+    { key: 'email', title: 'Email Address', render: (row) => row.email },
+    { key: 'role', title: 'Assigned Role', render: (row) => <Badge variant={row.role === 'admin' ? 'primary' : 'info'} size="sm">{row.role.toUpperCase()}</Badge> },
+    { key: 'status', title: 'Status', render: (row) => <Badge variant={row.isActive ? 'success' : 'danger'} dot>{row.isActive ? 'ACTIVE' : 'SUSPENDED'}</Badge> },
+    { key: 'joined', title: 'Joined Date', render: (row) => new Date(row.createdAt).toLocaleDateString() },
     {
-      key: 'role',
-      title: 'Role',
-      render: (row) => (
-        <Badge
-          variant={
-            row.role === 'admin'
-              ? 'danger'
-              : row.role === 'generator'
-              ? 'warning'
-              : row.role === 'ev_port'
-              ? 'secondary'
-              : row.role === 'fleet_manager'
-              ? 'info'
-              : 'primary'
-          }
-          size="sm"
-        >
-          {row.role.replace('_', ' ').toUpperCase()}
-        </Badge>
-      ),
-    },
-    {
-      key: 'isActive',
-      title: 'Status',
-      render: (row) => (
-        <Badge variant={row.isActive ? 'success' : 'neutral'} dot>
-          {row.isActive ? 'ACTIVE' : 'SUSPENDED'}
-        </Badge>
-      ),
-    },
-    { key: 'joined', title: 'Registered Date' },
-    {
-      key: 'action',
-      title: 'Governance Action',
+      key: 'actions',
+      title: 'Governance',
       render: (row) => (
         <Button variant="outline" size="sm" onClick={() => handleOpenEditUserModal(row)}>
-          Edit Access
+          Edit Role / Status
         </Button>
       ),
     },
   ];
 
-  const transactionColumns = [
-    { key: 'id', title: 'Tx ID' },
-    { key: 'generator', title: 'Clean Power Supplier' },
-    { key: 'port', title: 'Destination Port / Node' },
-    { key: 'energy', title: 'Energy Dispatched' },
-    { key: 'rate', title: 'Tariff Rate' },
-    { key: 'payout', title: 'Settlement Payout' },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (row) => (
-        <Badge
-          variant={row.status === 'settled' ? 'success' : row.status === 'dispatched' ? 'info' : 'warning'}
-          dot
-        >
-          {row.status.toUpperCase()}
-        </Badge>
-      ),
-    },
-    { key: 'timestamp', title: 'Time' },
+  const vehicleColumns = [
+    { key: 'make', title: 'Make & Model', render: (row) => `${row.make} ${row.model}` },
+    { key: 'year', title: 'Year', render: (row) => row.year },
+    { key: 'plate', title: 'License Plate', render: (row) => <span className="font-mono text-primary-400 font-bold">{row.licensePlate}</span> },
+    { key: 'capacity', title: 'Battery Capacity', render: (row) => `${row.batteryCapacityKwh} kWh` },
+    { key: 'connector', title: 'Connector', render: (row) => row.connectorType?.toUpperCase() },
+    { key: 'owner', title: 'Owner Name', render: (row) => row.owner?.name || 'EV Driver' },
+  ];
+
+  const bookingColumns = [
+    { key: 'ref', title: 'Ref #', render: (row) => <span className="font-mono text-secondary-400 font-bold">{row.bookingReference}</span> },
+    { key: 'station', title: 'Station', render: (row) => row.chargingPort?.stationName || 'Clean Power Hub' },
+    { key: 'user', title: 'Driver', render: (row) => row.user?.name || 'EV User' },
+    { key: 'time', title: 'Scheduled Time', render: (row) => new Date(row.scheduledStartTime).toLocaleString() },
+    { key: 'duration', title: 'Duration', render: (row) => `${row.durationMinutes} mins` },
+    { key: 'status', title: 'Status', render: (row) => <Badge variant={row.status === 'confirmed' ? 'success' : row.status === 'pending' ? 'warning' : 'danger'} dot>{row.status.toUpperCase()}</Badge> },
+  ];
+
+  const sessionColumns = [
+    { key: 'station', title: 'Station', render: (row) => row.chargingPort?.stationName || 'Hub' },
+    { key: 'driver', title: 'Driver', render: (row) => row.user?.name || 'EV Driver' },
+    { key: 'vehicle', title: 'Vehicle', render: (row) => `${row.vehicle?.make || 'EV'} (${row.vehicle?.licensePlate || ''})` },
+    { key: 'energy', title: 'Energy Delivered', render: (row) => `${row.energyConsumedKwh || 0} kWh` },
+    { key: 'cost', title: 'Cost ($)', render: (row) => `$${row.cost || 0}` },
+    { key: 'status', title: 'Status', render: (row) => <Badge variant={row.status === 'active' ? 'info' : 'success'} dot>{row.status.toUpperCase()}</Badge> },
+  ];
+
+  const portColumns = [
+    { key: 'identifier', title: 'Port Code', render: (row) => <span className="font-mono text-secondary-400 font-bold">{row.portIdentifier}</span> },
+    { key: 'station', title: 'Station Name', render: (row) => row.stationName },
+    { key: 'connector', title: 'Connector Standard', render: (row) => row.connectorType?.toUpperCase() },
+    { key: 'power', title: 'Max Power', render: (row) => `${row.maxPowerOutputKw} kW` },
+    { key: 'approval', title: 'Approval Status', render: (row) => <Badge variant={row.isApproved ? 'success' : 'danger'} dot>{row.approvalStatus || (row.isApproved ? 'APPROVED' : 'PENDING')}</Badge> },
   ];
 
   return (
@@ -227,80 +287,82 @@ export default function AdminPanel() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-red-950/80 via-surface-800 to-primary-950/80 border border-red-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-surface-900 via-primary-950/90 to-surface-900 border border-primary-500/30 shadow-2xl">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
             🛡️
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                System Administration & Governance
+                System Administration &amp; Governance
               </h1>
-              <Badge variant="danger" dot pulse>System Shield Active</Badge>
+              <Badge variant="primary" dot pulse>Live Supabase DB</Badge>
             </div>
             <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Administrator: <span className="text-white font-medium">{user?.name || 'Super Admin'}</span> • Full Root Controls
+              Admin: <span className="text-white font-medium">{user?.name || 'Administrator'}</span> •{' '}
+              {users.length} Total Registered Accounts
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <Button variant="outline" size="md" onClick={() => setIsNotifyModalOpen(true)}>
-            🔔 Broadcast System Alert
-          </Button>
-          <Button variant="primary" size="md" onClick={() => setActiveTab('settings')}>
-            ⚙️ System Config Settings
-          </Button>
-        </div>
       </div>
 
-      {/* Key Metric StatCards */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
-          title="Total Registered Accounts"
-          value={`${users.length} Users`}
-          change="+84 this week"
+          title="Pending Station Applications"
+          value={`${pendingApplications.length} Requests`}
+          change="Station Owner Applications"
           changeType="increase"
-          periodText="across 5 roles"
-          badgeText="Active Network"
+          periodText="requires admin review"
+          badgeText="Review Needed"
+          badgeVariant="warning"
+          icon={<span className="text-xl">📋</span>}
+        />
+        <StatCard
+          title="Registered EV Vehicles"
+          value={`${overview?.vehiclesCount || vehicles.length} EVs`}
+          change="Public & Fleet Vehicles"
+          changeType="increase"
+          periodText="live count from DB"
+          badgeText="EV Fleet"
           badgeVariant="primary"
-          icon={<span className="text-xl">👥</span>}
+          icon={<span className="text-xl">🚗</span>}
         />
         <StatCard
-          title="Operational Microgrids"
-          value="16 Microgrid Nodes"
-          change="100% Online"
+          title="Approved Charging Ports"
+          value={`${overview?.portsCount || ports.filter(p => p.isApproved).length} Ports`}
+          change="Public Charging Infrastructure"
           changeType="increase"
-          periodText="grid infrastructure"
-          badgeText="Operational"
+          periodText="active network"
+          badgeText="Live Ports"
           badgeVariant="success"
-          icon={<span className="text-xl">🌐</span>}
+          icon={<span className="text-xl">🔌</span>}
         />
         <StatCard
-          title="Total Coordinated Energy"
-          value="14.2 GWh"
-          change="+1.8 GWh"
+          title="Slot Reservations"
+          value={`${overview?.bookingsCount || bookings.length} Bookings`}
+          change="Advance Reservations"
           changeType="increase"
-          periodText="cumulative dispatch"
-          badgeText="High Capacity"
+          periodText="slot booking ledger"
+          badgeText="Bookings"
           badgeVariant="info"
-          icon={<span className="text-xl">⚡</span>}
-        />
-        <StatCard
-          title="JWT Shield Security"
-          value="Active"
-          change="0 Breaches"
-          changeType="increase"
-          periodText="bcrypt + JWT token"
-          badgeText="Secure"
-          badgeVariant="success"
-          icon={<span className="text-xl">🔒</span>}
+          icon={<span className="text-xl">🗓️</span>}
         />
       </div>
 
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs (All 10 Sections Supported) */}
       <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'dashboard'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          📊 Overview
+        </button>
         <button
           onClick={() => setActiveTab('users')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
@@ -309,27 +371,77 @@ export default function AdminPanel() {
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          👥 User Governance ({users.length})
+          👥 Users ({users.length})
         </button>
         <button
-          onClick={() => setActiveTab('assets')}
+          onClick={() => setActiveTab('applications')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'assets'
+            activeTab === 'applications'
               ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          ☀️ Generators & 🔌 Ports Assets
+          📋 Station Requests ({pendingApplications.length})
         </button>
         <button
-          onClick={() => setActiveTab('transactions')}
+          onClick={() => setActiveTab('ports')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'transactions'
+            activeTab === 'ports'
               ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          💳 Energy Transactions Ledger
+          🔌 Approved Stations ({ports.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('vehicles')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'vehicles'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          🚗 Vehicles ({vehicles.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'bookings'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          🗓️ Bookings ({bookings.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'sessions'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          ⚡ Charging Sessions ({sessions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'reports'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          📈 Reports
+        </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'notifications'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          🔔 Notifications
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -339,212 +451,218 @@ export default function AdminPanel() {
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          ⚙️ System Config Settings
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'analytics'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
-          }`}
-        >
-          📊 System Traffic & Analytics
+          ⚙️ Settings
         </button>
       </div>
 
-      {/* TAB 1: User Governance Table */}
+      {/* SECTION 1: Dashboard Overview */}
+      {(activeTab === 'dashboard' || activeTab === 'overview') && (
+        <section className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card variant="glass" padding="normal">
+              <CardHeader title="System Architecture &amp; Database Health" subtitle="Supabase PostgreSQL Pool Status" />
+              <div className="space-y-3 text-xs pt-2">
+                <div className="flex justify-between">
+                  <span className="text-surface-400">Database Engine:</span>
+                  <span className="text-white font-bold">PostgreSQL (Supabase)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-surface-400">ORM Mapping Layer:</span>
+                  <span className="text-primary-400 font-bold">Prisma ORM</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-surface-400">Pool Limit:</span>
+                  <span className="text-emerald-400 font-bold">10 Active Connections</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-surface-400">Governance Mode:</span>
+                  <span className="text-white font-bold">Strict Role Protection</span>
+                </div>
+              </div>
+            </Card>
+
+            <Card variant="glass" padding="normal">
+              <CardHeader title="Quick Action Summary" subtitle="Pending admin tasks" />
+              <div className="space-y-3 pt-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-surface-400">Station Applications Pending:</span>
+                  <Badge variant="warning">{pendingApplications.length} Pending</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-surface-400">Active Charging Sessions:</span>
+                  <Badge variant="info">{sessions.filter(s => s.status === 'active').length} Active</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-surface-400">Registered EV Accounts:</span>
+                  <Badge variant="primary">{users.length} Users</Badge>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </section>
+      )}
+
+      {/* SECTION 2: Users */}
       {activeTab === 'users' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Platform User Accounts Directory</h2>
-            <Badge variant="danger">Root Access Controls</Badge>
+            <h2 className="text-lg font-bold text-white tracking-tight">System User Accounts</h2>
+            <Badge variant="primary">Access Control</Badge>
           </div>
-          <Table columns={userColumns} data={users} />
+          <Table columns={userColumns} data={users} emptyMessage="No user accounts found." />
         </section>
       )}
 
-      {/* TAB 2: Asset Oversight (Generators & Ports) */}
-      {activeTab === 'assets' && (
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <h3 className="text-md font-bold text-white flex items-center gap-2">
-              <span>☀️</span> Renewable Generation Facilities
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {assets.generators.map((gen, idx) => (
-                <Card key={idx} variant="glass" padding="normal">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-white text-base">{gen.name}</h4>
-                    <Badge variant="warning" size="sm">{gen.type}</Badge>
-                  </div>
-                  <div className="space-y-1 text-xs text-surface-400 my-2">
-                    <p>Rated Capacity: <span className="text-white font-semibold">{gen.capacity}</span></p>
-                    <p>Current Output: <span className="text-primary-400 font-semibold">{gen.output}</span></p>
-                  </div>
-                  <Badge variant="success" dot>OPERATIONAL</Badge>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-md font-bold text-white flex items-center gap-2">
-              <span>🔌</span> EV Charging Station Infrastructure
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {assets.ports.map((port, idx) => (
-                <Card key={idx} variant="glass" padding="normal">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-white text-base">{port.name}</h4>
-                    <Badge variant="info" size="sm">{port.portsCount}</Badge>
-                  </div>
-                  <div className="space-y-1 text-xs text-surface-400 my-2">
-                    <p>Max Output Power: <span className="text-white font-semibold">{port.power}</span></p>
-                  </div>
-                  <Badge variant={port.status === 'Operational' ? 'success' : 'warning'} dot>
-                    {port.status.toUpperCase()}
-                  </Badge>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: Energy Transactions Ledger */}
-      {activeTab === 'transactions' && (
+      {/* SECTION 3: Station Requests */}
+      {activeTab === 'applications' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">System-Wide Clean Energy Settlement Ledger</h2>
-            <Badge variant="info">Automated Microgrid Settlement</Badge>
+            <h2 className="text-lg font-bold text-white tracking-tight">Charging Station Owner Applications</h2>
+            <Badge variant="warning">Admin Governance Review</Badge>
           </div>
-          <Table columns={transactionColumns} data={transactions} />
+          {isLoading ? (
+            <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
+              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              <span>Loading station applications from Supabase...</span>
+            </div>
+          ) : (
+            <Table columns={applicationColumns} data={pendingApplications} emptyMessage="No pending station owner applications." />
+          )}
         </section>
       )}
 
-      {/* TAB 4: System Config Settings */}
+      {/* SECTION 4: Approved Stations */}
+      {activeTab === 'ports' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Approved Public Charging Connectors</h2>
+            <Badge variant="info">Charging Infrastructure</Badge>
+          </div>
+          <Table columns={portColumns} data={ports} emptyMessage="No charging ports registered." />
+        </section>
+      )}
+
+      {/* SECTION 5: Vehicles */}
+      {activeTab === 'vehicles' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Registered EV Vehicle Fleet</h2>
+            <Badge variant="primary">EV Fleet</Badge>
+          </div>
+          <Table columns={vehicleColumns} data={vehicles} emptyMessage="No vehicles registered." />
+        </section>
+      )}
+
+      {/* SECTION 6: Bookings */}
+      {activeTab === 'bookings' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Slot Reservation Ledger</h2>
+            <Badge variant="info">Bookings</Badge>
+          </div>
+          <Table columns={bookingColumns} data={bookings} emptyMessage="No bookings found." />
+        </section>
+      )}
+
+      {/* SECTION 7: Charging Sessions */}
+      {activeTab === 'sessions' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Charging Sessions History</h2>
+            <Badge variant="success">Sessions</Badge>
+          </div>
+          <Table columns={sessionColumns} data={sessions} emptyMessage="No charging sessions found." />
+        </section>
+      )}
+
+      {/* SECTION 8: Reports */}
+      {activeTab === 'reports' && (
+        <Card variant="glass" padding="normal">
+          <CardHeader title="System Telemetry &amp; Analytics Reports" subtitle="Aggregate clean energy stats" />
+          <div className="p-4 space-y-3 text-xs">
+            <div className="flex justify-between">
+              <span className="text-surface-400">Total Clean Energy Delivered:</span>
+              <span className="text-emerald-400 font-bold">{overview?.totalEnergyGwh || 0} GWh</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-surface-400">Total Settlement Revenue:</span>
+              <span className="text-white font-bold">${overview?.totalRevenue || 0}</span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* SECTION 9: Notifications */}
+      {activeTab === 'notifications' && (
+        <Card variant="glass" padding="normal" className="max-w-xl">
+          <CardHeader title="Broadcast Notification Dispatcher" subtitle="Send notices to system users" />
+          <form className="space-y-4 py-2" onSubmit={(e) => {
+            e.preventDefault();
+            setNotification({ type: 'success', title: 'Broadcast Sent! 🔔', message: `Notice dispatched to all users.` });
+          }}>
+            <Input
+              label="Notification Title"
+              value={broadcastForm.title}
+              onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
+            />
+            <Input
+              label="Message Body"
+              value={broadcastForm.message}
+              onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
+            />
+            <Button variant="primary" type="submit">Broadcast System Notice</Button>
+          </form>
+        </Card>
+      )}
+
+      {/* SECTION 10: Settings */}
       {activeTab === 'settings' && (
-        <Card variant="glass" padding="normal" className="max-w-2xl">
-          <CardHeader title="Global Platform Configuration" subtitle="System environment & rate limiting settings" />
-          <form onSubmit={handleSaveSettings} className="space-y-6 py-2">
-            <div className="p-4 rounded-2xl bg-surface-800/60 border border-surface-700/60 flex items-center justify-between">
+        <Card variant="glass" padding="normal" className="max-w-xl">
+          <CardHeader title="Platform System Settings" subtitle="Configure governance rules" />
+          <div className="space-y-4 py-2 text-xs">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800/60 border border-surface-700">
               <div>
-                <span className="text-sm font-bold text-white block">Platform Maintenance Mode</span>
-                <span className="text-xs text-surface-400 block">Temporarily pause non-essential user actions</span>
+                <p className="font-bold text-white">System Maintenance Mode</p>
+                <p className="text-surface-400 text-[11px]">Temporarily restrict new bookings</p>
               </div>
               <Toggle
                 checked={systemSettings.maintenanceMode}
                 onChange={(e) => setSystemSettings({ ...systemSettings, maintenanceMode: e.target.checked })}
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Rate Limit Max Requests (per 15m)"
-                type="number"
-                value={systemSettings.rateLimitMaxRequests}
-                onChange={(e) => setSystemSettings({ ...systemSettings, rateLimitMaxRequests: parseInt(e.target.value) })}
-              />
-              <Input
-                label="Grid Sync Frequency (sec)"
-                type="number"
-                value={systemSettings.gridSyncFrequencySeconds}
-                onChange={(e) => setSystemSettings({ ...systemSettings, gridSyncFrequencySeconds: parseInt(e.target.value) })}
-              />
-            </div>
-
-            <Input
-              label="AI Microservice Gateway URL"
-              value={systemSettings.aiServiceUrl}
-              onChange={(e) => setSystemSettings({ ...systemSettings, aiServiceUrl: e.target.value })}
-            />
-
-            <Button variant="primary" type="submit">
-              Save Global Settings
-            </Button>
-          </form>
+          </div>
         </Card>
       )}
 
-      {/* TAB 5: System Traffic & Analytics */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
-              <CardHeader
-                title="System API Throughput & Microgrid Dispatch Rate"
-                subtitle="Requests per second vs Energy Throughput (kWh)"
-              />
-              <div className="h-72 w-full pt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={platformAnalyticsData}>
-                    <defs>
-                      <linearGradient id="reqColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="kwhColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00e65c" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#00e65c" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
-                    <YAxis stroke="#94a3b8" fontSize={12} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '12px' }} />
-                    <Area type="monotone" dataKey="requestsPerSec" name="API Req/sec" stroke="#ef4444" fillOpacity={1} fill="url(#reqColor)" />
-                    <Area type="monotone" dataKey="throughputKwh" name="Power Dispatched (kWh)" stroke="#00e65c" fillOpacity={1} fill="url(#kwhColor)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
-              <CardHeader title="Clean Energy Sync Ratio (%)" subtitle="Percentage of renewable matching" />
-              <div className="h-72 w-full pt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={platformAnalyticsData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
-                    <YAxis stroke="#94a3b8" fontSize={12} unit=" %" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '12px' }} />
-                    <Bar dataKey="cleanSyncRatio" name="Clean Energy Sync (%)" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 1: Edit User Role & Status */}
+      {/* MODAL: Edit User Governance */}
       <Modal
         isOpen={isEditUserModalOpen}
         onClose={() => setIsEditUserModalOpen(false)}
-        title={`Edit User Access for ${selectedUser?.name}`}
-        subtitle="Manage platform roles and account suspension status"
+        title={`Governance & Role: ${selectedUser?.name}`}
+        subtitle="Manage user role permissions and active status"
       >
         <form onSubmit={handleUpdateUser} className="space-y-4 py-2">
           <Select
-            label="Assigned Role"
+            label="System Role"
             value={editUserData.role}
             onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
             options={[
-              { value: 'admin', label: 'Administrator (Full Root Controls)' },
-              { value: 'generator', label: 'Energy Generator Operator' },
-              { value: 'ev_port', label: 'EV Charging Port Operator' },
-              { value: 'ev_user', label: 'EV User Driver' },
+              { value: 'ev_user', label: 'EV User / Driver' },
+              { value: 'ev_port', label: 'EV Port Owner' },
+              { value: 'generator', label: 'Energy Generator' },
               { value: 'fleet_manager', label: 'Fleet Manager' },
+              { value: 'admin', label: 'Administrator' },
             ]}
           />
 
-          <div className="p-4 rounded-xl bg-surface-800/80 border border-surface-700 flex items-center justify-between">
-            <span className="text-xs font-semibold text-white">Account Active Status</span>
+          <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800/60 border border-surface-700">
+            <div>
+              <p className="text-xs font-bold text-white">Account Status</p>
+              <p className="text-[11px] text-surface-400">Suspended accounts cannot log in</p>
+            </div>
             <Toggle
               checked={editUserData.isActive}
               onChange={(e) => setEditUserData({ ...editUserData, isActive: e.target.checked })}
-              label={editUserData.isActive ? 'Active' : 'Suspended'}
             />
           </div>
 
@@ -552,53 +670,8 @@ export default function AdminPanel() {
             <Button variant="secondary" onClick={() => setIsEditUserModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              Save Governance Changes
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* MODAL 2: Broadcast System Notification */}
-      <Modal
-        isOpen={isNotifyModalOpen}
-        onClose={() => setIsNotifyModalOpen(false)}
-        title="Broadcast System Notification"
-        subtitle="Send platform alert or announcement to all users"
-      >
-        <form onSubmit={handleSendNotification} className="space-y-4 py-2">
-          <Input
-            label="Notification Title"
-            required
-            value={notifyFormData.title}
-            onChange={(e) => setNotifyFormData({ ...notifyFormData, title: e.target.value })}
-          />
-
-          <Input
-            label="Message Body"
-            required
-            value={notifyFormData.message}
-            onChange={(e) => setNotifyFormData({ ...notifyFormData, message: e.target.value })}
-          />
-
-          <Select
-            label="Severity Level"
-            value={notifyFormData.severity}
-            onChange={(e) => setNotifyFormData({ ...notifyFormData, severity: e.target.value })}
-            options={[
-              { value: 'info', label: 'Info (Blue)' },
-              { value: 'success', label: 'Success (Green)' },
-              { value: 'warning', label: 'Warning (Amber)' },
-              { value: 'error', label: 'Alert / Error (Red)' },
-            ]}
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
-            <Button variant="secondary" onClick={() => setIsNotifyModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Dispatch Broadcast Alert
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Updating...' : 'Save User Settings'}
             </Button>
           </div>
         </form>

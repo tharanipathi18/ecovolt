@@ -1,50 +1,29 @@
 import apiClient from './apiClient';
 
 /**
- * Authentication API service.
- * Handles user registration, login, profile, password management.
+ * Authentication API Service.
+ * Manages user registration, email/password login, Google OAuth integration, password reset flows, and profile fetching.
  */
 const authService = {
-  /**
-   * Register a new user.
-   * @param {{ name: string, email: string, password: string, role: string }} data
-   */
-  register: (data) => apiClient.post('/auth/register', data),
+  /** Authenticate via Google OAuth profile */
+  googleAuth: (data) => apiClient.post('/auth/google', data),
 
-  /**
-   * Authenticate user and receive JWT token.
-   * @param {{ email: string, password: string }} credentials
-   */
+  /** Register new user account */
+  register: (userData) => apiClient.post('/auth/register', userData),
+
+  /** Authenticate existing user */
   login: (credentials) => apiClient.post('/auth/login', credentials),
 
-  /**
-   * Retrieve the currently authenticated user's profile.
-   * Uses /auth/profile (primary route); /auth/me is kept as a server alias.
-   */
-  getProfile: () => apiClient.get('/auth/profile'),
+  /** Get currently authenticated user profile */
+  getMe: () => apiClient.get('/auth/me'),
 
-  /**
-   * Logout (clear server cookie).
-   */
-  logout: () => apiClient.post('/auth/logout'),
+  /** Request password reset token */
+  forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
 
-  /**
-   * Request password reset email.
-   * @param {{ email: string }} data
-   */
-  forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
+  /** Reset password using token */
+  resetPassword: (token, password) => apiClient.post(`/auth/reset-password/${token}`, { password }),
 
-  /**
-   * Reset password with token.
-   * @param {string} token
-   * @param {{ password: string, confirmPassword: string }} data
-   */
-  resetPassword: (token, data) => apiClient.post(`/auth/reset-password/${token}`, data),
-
-  /**
-   * Change password (authenticated).
-   * @param {{ currentPassword: string, newPassword: string }} data
-   */
+  /** Change authenticated user password */
   changePassword: (data) => apiClient.put('/auth/change-password', data),
 };
 

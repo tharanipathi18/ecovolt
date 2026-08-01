@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
+import { createNotification } from './notification.service.js';
 
-// In-memory system settings default
+// Centralized System Settings
 let systemSettings = {
   maintenanceMode: false,
   rateLimitMaxRequests: 100,
@@ -9,13 +10,15 @@ let systemSettings = {
   gridSyncFrequencySeconds: 15,
 };
 
-/** Get platform-wide overview metrics */
+/** Get platform-wide overview metrics directly from DB */
 export const getSystemOverview = async () => {
   const usersCount = await prisma.user.count();
   const generatorsCount = await prisma.energyGenerator.count();
-  const portsCount = await prisma.chargingPort.count();
-  const fleetCount = await prisma.fleetVehicle.count();
-  const activePortsCount = await prisma.chargingPort.count({ where: { status: 'occupied' } });
+  const portsCount = await prisma.chargingPort.count({ where: { isApproved: true } });
+  const pendingApplicationsCount = await prisma.chargingPort.count({ where: { approvalStatus: 'PENDING' } });
+  const vehiclesCount = await prisma.vehicle.count();
+  const bookingsCount = await prisma.booking.count();
+  const sessionsCount = await prisma.chargingSession.count();
 
   const transactions = await prisma.energyTransaction.findMany({ where: { status: 'settled' } });
   const totalKwh = transactions.reduce((acc, t) => acc + t.energyAmountKwh, 0);
@@ -25,12 +28,72 @@ export const getSystemOverview = async () => {
     usersCount,
     generatorsCount,
     portsCount,
-    activePortsCount,
-    fleetCount,
+    pendingApplicationsCount,
+    vehiclesCount,
+    bookingsCount,
+    sessionsCount,
     totalEnergyGwh: Number((totalKwh / 1000000).toFixed(2)),
     totalRevenue: Number(totalRevenue.toFixed(2)),
     systemHealthPercentage: 100,
   };
+};
+
+/** Get all pending station applications for Admin review */
+export const getPendingStationApplications = async () => {
+  return prisma.chargingPort.findMany({
+    where: { approvalStatus: 'PENDING' },
+    include: {
+      operator: { select: { id: true, name: true, email: true, phone: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+};
+
+/** Admin Approve or Reject Station Application */
+export const reviewStationApplication = async (portId, decision) => {
+  const port = await prisma.chargingPort.findUnique({ where: { id: portId } });
+  if (!port) {
+    const error = new Error('Station application not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const isApproved = decision === 'APPROVE';
+  const approvalStatus = isApproved ? 'APPROVED' : 'REJECTED';
+  const status = isApproved ? 'available' : 'rejected';
+
+  const updatedPort = await prisma.chargingPort.update({
+    where: { id: portId },
+    data: {
+      isApproved,
+      approvalStatus,
+      status,
+    },
+    include: {
+      operator: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  // Dispatch Notification to Station Owner
+  if (isApproved) {
+    await createNotification({
+      userId: port.operatorId,
+      title: 'Station Application APPROVED! ⚡',
+      message: `Congratulations! Your charging station "${port.stationName}" has been approved by Admin and is now live on EcoVolt.`,
+      type: 'success',
+      severity: 'medium',
+    });
+  } else {
+    await createNotification({
+      userId: port.operatorId,
+      title: 'Station Application Rejected ❌',
+      message: `Your application for charging station "${port.stationName}" was rejected. Please contact support.`,
+      type: 'error',
+      severity: 'medium',
+    });
+  }
+
+  return updatedPort;
 };
 
 /** Get paginated list of all users */
@@ -77,6 +140,38 @@ export const updateUserRoleAndStatus = async (userId, data) => {
   });
 };
 
+/** Get all system vehicles */
+export const getAllVehicles = async () => {
+  return prisma.vehicle.findMany({
+    include: { owner: { select: { id: true, name: true, email: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+};
+
+/** Get all system bookings */
+export const getAllBookings = async () => {
+  return prisma.booking.findMany({
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      user: { select: { id: true, name: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+    orderBy: { scheduledStartTime: 'desc' },
+  });
+};
+
+/** Get all system charging sessions */
+export const getAllSessions = async () => {
+  return prisma.chargingSession.findMany({
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      user: { select: { id: true, name: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+    orderBy: { startTime: 'desc' },
+  });
+};
+
 /** Get all system generators */
 export const getAllGenerators = async () => {
   return prisma.energyGenerator.findMany({
@@ -106,44 +201,6 @@ export const getAllTransactions = async () => {
     orderBy: { timestamp: 'desc' },
     take: 100,
   });
-};
-
-/** Dispatch in-app notification */
-export const sendNotification = async (_senderId, data) => {
-  const { recipientId, title, message, type, severity } = data;
-
-  if (recipientId) {
-    const notification = await prisma.notification.create({
-      data: {
-        recipientId,
-        title,
-        message,
-        type: type || 'system',
-        severity: severity || 'info',
-      },
-    });
-    return [notification];
-  }
-
-  // Broadcast to all active users
-  const allUsers = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true },
-  });
-
-  return prisma.$transaction(
-    allUsers.map((u) =>
-      prisma.notification.create({
-        data: {
-          recipientId: u.id,
-          title,
-          message,
-          type: type || 'system',
-          severity: severity || 'info',
-        },
-      }),
-    ),
-  );
 };
 
 /** Get system settings */

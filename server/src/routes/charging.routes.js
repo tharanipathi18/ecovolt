@@ -15,37 +15,18 @@ const router = Router();
 // Apply auth protection
 router.use(protect);
 
-/**
- * @route   GET /api/charging/ports
- * @desc    Get all charging ports
- * @access  Private
- */
-router.get('/ports', chargingController.getPorts);
+/** Station Application (Prospective Station Owner) */
+router.post('/apply-station', chargingController.applyStation);
 
-/**
- * @route   POST /api/charging/ports
- * @desc    Create a new charging port
- * @access  Private (ev_port, admin)
- */
+/** Ports */
+router.get('/ports', chargingController.getPorts);
 router.post(
   '/ports',
   authorize('ev_port', 'admin'),
   validate(validateCreatePort),
   chargingController.createPort,
 );
-
-/**
- * @route   GET /api/charging/ports/:id
- * @desc    Get single charging port by ID
- * @access  Private
- */
 router.get('/ports/:id', chargingController.getPortById);
-
-/**
- * @route   PUT /api/charging/ports/:id
- * @desc    Update charging port
- * @access  Private (ev_port, admin)
- */
 router.put(
   '/ports/:id',
   authorize('ev_port', 'admin'),
@@ -53,29 +34,20 @@ router.put(
   chargingController.updatePort,
 );
 
-/**
- * @route   POST /api/charging/sessions/start
- * @desc    Start a new charging session
- * @access  Private
- */
+/** Sessions */
+router.get('/sessions', chargingController.getSessions);
 router.post(
   '/sessions/start',
   validate(validateStartSession),
   chargingController.startSession,
 );
-
-/**
- * @route   PATCH /api/charging/sessions/:id/stop
- * @desc    Stop an active charging session
- * @access  Private
- */
 router.patch('/sessions/:id/stop', chargingController.stopSession);
 
-/**
- * @route   POST /api/charging/allocate-energy
- * @desc    Allocate renewable energy to port
- * @access  Private (ev_port, generator, admin)
- */
+/** Bookings (Station Owner / Operator Approval) */
+router.get('/bookings', authorize('ev_port', 'admin'), chargingController.getOperatorBookings);
+router.put('/bookings/:id/status', authorize('ev_port', 'admin'), chargingController.updateBookingStatus);
+
+/** Energy Allocation */
 router.post(
   '/allocate-energy',
   authorize('ev_port', 'generator', 'admin'),
@@ -83,29 +55,11 @@ router.post(
   chargingController.allocateEnergy,
 );
 
-/**
- * @route   GET /api/charging/queue/:portId
- * @desc    Get waiting queue for port
- * @access  Private
- */
+/** Queue */
 router.get('/queue/:portId', chargingController.getQueue);
-
-/**
- * @route   POST /api/charging/queue
- * @desc    Add vehicle to queue
- * @access  Private
- */
 router.post('/queue', validate(validateAddToQueue), chargingController.addToQueue);
 
-/**
- * @route   GET /api/charging/analytics
- * @desc    Get charging analytics
- * @access  Private (ev_port, admin)
- */
-router.get(
-  '/analytics',
-  authorize('ev_port', 'admin'),
-  chargingController.getAnalytics,
-);
+/** Analytics */
+router.get('/analytics', authorize('ev_port', 'admin'), chargingController.getAnalytics);
 
 export default router;

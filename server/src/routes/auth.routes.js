@@ -1,65 +1,26 @@
 import { Router } from 'express';
 import { protect } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
-import { validateRegister, validateLogin, validateForgotPassword, validateResetPassword, validateChangePassword } from '../validators/auth.validator.js';
+import {
+  validateRegister,
+  validateLogin,
+  validateForgotPassword,
+  validateResetPassword,
+  validateChangePassword,
+} from '../validators/auth.validator.js';
 import * as authController from '../controllers/auth.controller.js';
 
 const router = Router();
 
-/**
- * @route   POST /api/auth/register
- * @desc    Register a new user
- * @access  Public
- */
+// Public auth routes
+router.post('/google', authController.googleAuth);
 router.post('/register', validate(validateRegister), authController.register);
-
-/**
- * @route   POST /api/auth/login
- * @desc    Authenticate user & get token
- * @access  Public
- */
 router.post('/login', validate(validateLogin), authController.login);
-
-/**
- * @route   GET /api/auth/profile
- * @desc    Get the authenticated user's profile (primary route)
- * @access  Private
- */
-router.get('/profile', protect, authController.getProfile);
-
-/**
- * @route   GET /api/auth/me
- * @desc    Get the authenticated user's profile (alias for backwards compatibility)
- * @access  Private
- */
-router.get('/me', protect, authController.getMe);
-
-/**
- * @route   POST /api/auth/logout
- * @desc    Logout user
- * @access  Private
- */
-router.post('/logout', protect, authController.logout);
-
-/**
- * @route   POST /api/auth/forgot-password
- * @desc    Generate reset password token
- * @access  Public
- */
 router.post('/forgot-password', validate(validateForgotPassword), authController.forgotPassword);
-
-/**
- * @route   POST /api/auth/reset-password/:token
- * @desc    Reset password using token
- * @access  Public
- */
 router.post('/reset-password/:token', validate(validateResetPassword), authController.resetPassword);
 
-/**
- * @route   PUT /api/auth/change-password
- * @desc    Change password (authenticated user)
- * @access  Private
- */
+// Protected auth routes
+router.get('/me', protect, authController.getMe);
 router.put('/change-password', protect, validate(validateChangePassword), authController.changePassword);
 
 export default router;

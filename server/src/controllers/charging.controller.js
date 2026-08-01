@@ -2,6 +2,20 @@ import asyncHandler from 'express-async-handler';
 import * as chargingService from '../services/charging.service.js';
 
 /**
+ * @desc    Submit Station Owner Application (Status = PENDING until Admin approval)
+ * @route   POST /api/charging/apply-station
+ * @access  Private
+ */
+export const applyStation = asyncHandler(async (req, res) => {
+  const application = await chargingService.submitStationApplication(req.user.id, req.body);
+  res.status(201).json({
+    success: true,
+    message: 'Station owner application submitted successfully and is pending Admin approval',
+    data: { application },
+  });
+});
+
+/**
  * @desc    Create new charging port / station
  * @route   POST /api/charging/ports
  * @access  Private (ev_port, admin)
@@ -18,7 +32,7 @@ export const createPort = asyncHandler(async (req, res) => {
 /**
  * @desc    Get all charging ports
  * @route   GET /api/charging/ports
- * @access  Private / Public
+ * @access  Private
  */
 export const getPorts = asyncHandler(async (req, res) => {
   const ports = await chargingService.getChargingPorts(req.user.id, req.user.role, req.query);
@@ -32,7 +46,7 @@ export const getPorts = asyncHandler(async (req, res) => {
 /**
  * @desc    Get single charging port details
  * @route   GET /api/charging/ports/:id
- * @access  Private / Public
+ * @access  Private
  */
 export const getPortById = asyncHandler(async (req, res) => {
   const result = await chargingService.getChargingPortById(req.params.id);
@@ -62,6 +76,20 @@ export const updatePort = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Get charging sessions (active/completed)
+ * @route   GET /api/charging/sessions
+ * @access  Private
+ */
+export const getSessions = asyncHandler(async (req, res) => {
+  const sessions = await chargingService.getChargingSessions(req.user.id, req.user.role, req.query.status);
+  res.status(200).json({
+    success: true,
+    count: sessions.length,
+    data: { sessions },
+  });
+});
+
+/**
  * @desc    Start a charging session
  * @route   POST /api/charging/sessions/start
  * @access  Private
@@ -76,7 +104,7 @@ export const startSession = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Stop an active charging session
+ * @desc    Stop / Release an active charging session
  * @route   PATCH /api/charging/sessions/:id/stop
  * @access  Private
  */
@@ -87,8 +115,41 @@ export const stopSession = asyncHandler(async (req, res) => {
   );
   res.status(200).json({
     success: true,
-    message: 'Charging session completed',
+    message: 'Charging session completed & port freed',
     data: { session },
+  });
+});
+
+/**
+ * @desc    Get operator's bookings to review
+ * @route   GET /api/charging/bookings
+ * @access  Private (ev_port, admin)
+ */
+export const getOperatorBookings = asyncHandler(async (req, res) => {
+  const bookings = await chargingService.getOperatorBookings(req.user.id, req.user.role);
+  res.status(200).json({
+    success: true,
+    count: bookings.length,
+    data: { bookings },
+  });
+});
+
+/**
+ * @desc    Accept or Reject a booking
+ * @route   PUT /api/charging/bookings/:id/status
+ * @access  Private (ev_port, admin)
+ */
+export const updateBookingStatus = asyncHandler(async (req, res) => {
+  const booking = await chargingService.updateBookingStatus(
+    req.params.id,
+    req.user.id,
+    req.user.role,
+    req.body.status,
+  );
+  res.status(200).json({
+    success: true,
+    message: `Booking status updated to ${req.body.status}`,
+    data: { booking },
   });
 });
 

@@ -27,34 +27,21 @@ export default function Dashboard() {
   // Selected Station for booking
   const [selectedStation, setSelectedStation] = useState(null);
 
-  // Dynamic API State
+  // Dynamic API State (Strictly from Supabase DB — No Mock Data)
   const [vehicles, setVehicles] = useState([]);
   const [activeVehicleId, setActiveVehicleId] = useState('');
   const [nearbyStations, setNearbyStations] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [historySessions, setHistorySessions] = useState([]);
+  const [sustainability, setSustainability] = useState(null);
 
   // Loading States
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
 
-  // Default vehicle fallback if user hasn't created one yet
-  const activeVehicle = vehicles.find((v) => v.id === activeVehicleId) || vehicles[0] || {
-    id: 'placeholder',
-    make: 'Tesla',
-    model: 'Model Y',
-    year: 2024,
-    licensePlate: 'EV-READY',
-    batteryCapacityKwh: 75,
-    connectorType: 'ccs_2',
-    currentStateOfCharge: 80,
-    estimatedRangeMiles: 250,
-    sohPercentage: 96.5,
-    tempCelsius: 28,
-    voltage: 390,
-    fastChargeCycles: 42,
-  };
+  // Active Vehicle selected from user's real vehicles in DB
+  const activeVehicle = vehicles.find((v) => v.id === activeVehicleId) || vehicles[0] || null;
 
   // Smart Vehicle Simulator Controls State
   const [vehicleControls, setVehicleControls] = useState({
@@ -87,9 +74,9 @@ export default function Dashboard() {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || '+1 (555) 234-5678',
-    street: user?.addressStreet || '124 Innovation Way',
-    city: user?.addressCity || 'San Francisco',
+    phone: user?.phone || '',
+    street: user?.addressStreet || '',
+    city: user?.addressCity || '',
   });
 
   // ─── Fetch All Initial Data from Backend API ──────────────────────────────
@@ -117,6 +104,10 @@ export default function Dashboard() {
       // 4. Fetch Charging History
       const hRes = await evUserService.getChargingHistory();
       setHistorySessions(hRes.data?.history || []);
+
+      // 5. Fetch Sustainability Metrics
+      const mRes = await evUserService.getSustainabilityMetrics();
+      setSustainability(mRes.data || null);
     } catch (err) {
       setNotification({
         type: 'error',
@@ -157,6 +148,7 @@ export default function Dashboard() {
         title: 'Vehicle Registered!',
         message: `${createdVehicle.make} ${createdVehicle.model} (${createdVehicle.licensePlate}) saved to Supabase DB.`,
       });
+      loadDashboardData();
     } catch (err) {
       setNotification({
         type: 'error',
@@ -168,7 +160,7 @@ export default function Dashboard() {
     }
   };
 
-  // ─── Create Booking Handler (API Call to Supabase) ───────────────────────
+  // ─── Create Booking Handler (Status = Pending for Station Owner Approval) ───
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     if (!selectedStation) {
@@ -176,43 +168,23 @@ export default function Dashboard() {
       return;
     }
 
-    // Ensure user has a valid vehicle in DB first
-    let selectedVehicleId = activeVehicleId;
-    if (!selectedVehicleId || selectedVehicleId === 'placeholder') {
-      if (vehicles.length > 0) {
-        selectedVehicleId = vehicles[0].id;
-      } else {
-        // Auto-register a default vehicle if user has none
-        try {
-          const autoVeh = await evUserService.registerVehicle({
-            make: 'Tesla',
-            model: 'Model Y',
-            year: 2024,
-            licensePlate: `EV-${Math.floor(100 + Math.random() * 900)}-CA`,
-            batteryCapacityKwh: 75,
-            connectorType: 'ccs_2',
-          });
-          selectedVehicleId = autoVeh.data.vehicle.id;
-          setVehicles([autoVeh.data.vehicle]);
-          setActiveVehicleId(selectedVehicleId);
-        } catch (vehErr) {
-          setNotification({
-            type: 'error',
-            title: 'Vehicle Required',
-            message: vehErr.message || 'Please register a vehicle before booking a slot.',
-          });
-          return;
-        }
-      }
+    if (!activeVehicle) {
+      setNotification({
+        type: 'error',
+        title: 'No Vehicle Selected',
+        message: 'Please register a vehicle before reserving a slot.',
+      });
+      setIsRegisterVehicleModalOpen(true);
+      return;
     }
 
     setIsSubmittingBooking(true);
 
     try {
-      // 1. Dispatch Axios POST request to backend API
+      // 1. Dispatch Axios POST request (Status = pending)
       const res = await evUserService.createBooking({
         chargingPortId: selectedStation.id,
-        vehicleId: selectedVehicleId,
+        vehicleId: activeVehicle.id,
         scheduledStartTime: new Date(bookingFormData.scheduledStartTime).toISOString(),
         durationMinutes: parseInt(bookingFormData.durationMinutes, 10),
       });
@@ -225,18 +197,17 @@ export default function Dashboard() {
 
       setIsBookSlotModalOpen(false);
 
-      // 3. Show success notification ONLY AFTER successful database insertion
+      // 3. Show success notification (Pending Approval)
       setNotification({
         type: 'success',
-        title: 'Booking Confirmed! ⚡',
-        message: `Slot reserved at ${selectedStation.stationName || selectedStation.name} (${newBooking.bookingReference}). Saved in Supabase DB.`,
+        title: 'Booking Requested ⏳',
+        message: `Slot reservation submitted to ${selectedStation.stationName || selectedStation.name} (${newBooking.bookingReference}). Status: PENDING approval.`,
       });
     } catch (err) {
-      // 4. Error notification if backend API returns validation/double-booking error
       setNotification({
         type: 'error',
         title: 'Booking Failed',
-        message: err.message || 'Failed to confirm booking. Please try another slot.',
+        message: err.message || 'Failed to request booking.',
       });
     } finally {
       setIsSubmittingBooking(false);
@@ -262,15 +233,15 @@ export default function Dashboard() {
   const historyColumns = [
     { key: 'date', title: 'Date & Time', render: (row) => new Date(row.startTime || row.createdAt).toLocaleString() },
     { key: 'station', title: 'Charging Station', render: (row) => row.chargingPort?.stationName || 'Clean Power Hub' },
-    { key: 'energy', title: 'Energy Delivered', render: (row) => `${row.energyConsumedKwh || 42.5} kWh` },
+    { key: 'energy', title: 'Energy Delivered', render: (row) => `${row.energyConsumedKwh || 0} kWh` },
     { key: 'duration', title: 'Duration', render: (row) => `${row.durationMinutes || 45} mins` },
-    { key: 'cost', title: 'Cost ($)', render: (row) => `$${row.cost || 14.40}` },
+    { key: 'cost', title: 'Cost ($)', render: (row) => `$${row.cost || 0}` },
     {
       key: 'cleanRatio',
       title: 'Clean Energy %',
       render: (row) => (
-        <Badge variant={(row.renewableEnergyPercentage || 94) >= 90 ? 'success' : 'info'} dot>
-          {row.renewableEnergyPercentage || 94}% Clean
+        <Badge variant={(row.renewableEnergyPercentage || 100) >= 90 ? 'success' : 'info'} dot>
+          {row.renewableEnergyPercentage || 100}% Clean
         </Badge>
       ),
     },
@@ -305,7 +276,7 @@ export default function Dashboard() {
             </div>
             <p className="text-surface-400 text-xs md:text-sm mt-1">
               Welcome back, <span className="text-white font-medium">{user?.name || 'EV Driver'}</span> •{' '}
-              {activeVehicle.make} {activeVehicle.model} ({activeVehicle.licensePlate})
+              {activeVehicle ? `${activeVehicle.make} ${activeVehicle.model} (${activeVehicle.licensePlate})` : 'No vehicles registered'}
             </p>
           </div>
         </div>
@@ -320,7 +291,7 @@ export default function Dashboard() {
             />
           ) : (
             <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
-              No vehicles in DB — add one below
+              No vehicles registered
             </span>
           )}
           <Button variant="outline" size="md" onClick={() => setIsRegisterVehicleModalOpen(true)}>
@@ -329,42 +300,42 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Key Metric StatCards */}
+      {/* Key Metric StatCards (Dynamic from DB) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="State of Charge (SoC)"
-          value={`${activeVehicle.currentStateOfCharge || activeVehicle.stateOfCharge || 80}%`}
-          change="Battery Healthy"
+          value={activeVehicle ? `${activeVehicle.currentStateOfCharge || 80}%` : 'N/A'}
+          change={activeVehicle ? 'Battery Active' : 'No Vehicle'}
           changeType="increase"
           periodText="live battery status"
-          badgeText="Optimal"
-          badgeVariant="success"
+          badgeText={activeVehicle ? 'Optimal' : 'Inactive'}
+          badgeVariant={activeVehicle ? 'success' : 'neutral'}
           icon={<span className="text-xl">🔋</span>}
         />
         <StatCard
           title="Estimated Range"
-          value={`${activeVehicle.estimatedRangeMiles || 250} miles`}
-          change={`${activeVehicle.batteryCapacityKwh} kWh Capacity`}
+          value={activeVehicle ? `${activeVehicle.batteryCapacityKwh * 3.3} miles` : '0 miles'}
+          change={activeVehicle ? `${activeVehicle.batteryCapacityKwh} kWh Capacity` : 'No vehicle'}
           changeType="increase"
           periodText="remaining range"
-          badgeText="Ready"
-          badgeVariant="primary"
+          badgeText={activeVehicle ? 'Ready' : 'Register Vehicle'}
+          badgeVariant={activeVehicle ? 'primary' : 'warning'}
           icon={<span className="text-xl">🚗</span>}
         />
         <StatCard
           title="Personal CO2 Offset"
-          value="340.5 kg"
-          change="+45 kg this month"
+          value={`${sustainability?.co2SavedKg || 0} kg`}
+          change={`${sustainability?.totalSessionsCount || 0} Sessions Delivered`}
           changeType="increase"
           periodText="vs gasoline"
-          badgeText="17 Trees 🌳"
+          badgeText={`${sustainability?.treesEquivalent || 0} Trees 🌳`}
           badgeVariant="success"
           icon={<span className="text-xl">🌿</span>}
         />
         <StatCard
           title="Clean Energy Charged"
-          value="91.2%"
-          change="100% Renewable"
+          value={`${sustainability?.avgCleanPercentage || 0}%`}
+          change="Renewable Grid Synced"
           changeType="increase"
           periodText="solar/wind matched"
           badgeText="Zero Carbon"
@@ -383,7 +354,7 @@ export default function Dashboard() {
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          ⚡ Vehicle Simulator &amp; Battery
+          ⚡ Vehicle Telemetry ({vehicles.length})
         </button>
         <button
           onClick={() => setActiveTab('nearby')}
@@ -419,132 +390,110 @@ export default function Dashboard() {
 
       {/* TAB 1: Smart Vehicle Remote Controller & Battery Dashboard */}
       {activeTab === 'companion' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Remote Controller Simulator Widget */}
-            <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
-              <CardHeader
-                title="Smart Vehicle Controller (Live Telemetry)"
-                subtitle="Remote telemetry & interactive controls for active EV vehicle"
-                action={
-                  <Badge variant={vehicleControls.doorsLocked ? 'neutral' : 'warning'} dot>
-                    {vehicleControls.doorsLocked ? 'LOCKED' : 'UNLOCKED'}
-                  </Badge>
-                }
-              />
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 my-4">
-                <button
-                  type="button"
-                  onClick={() => setVehicleControls({ ...vehicleControls, doorsLocked: !vehicleControls.doorsLocked })}
-                  className={`p-4 rounded-2xl border text-center transition-all ${
-                    vehicleControls.doorsLocked
-                      ? 'bg-surface-800/80 border-surface-700 text-surface-300'
-                      : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                  }`}
-                >
-                  <span className="text-3xl block mb-1">{vehicleControls.doorsLocked ? '🔒' : '🔓'}</span>
-                  <span className="text-xs font-bold block">{vehicleControls.doorsLocked ? 'Unlock Doors' : 'Lock Doors'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setVehicleControls({ ...vehicleControls, chargingActive: !vehicleControls.chargingActive })}
-                  className={`p-4 rounded-2xl border text-center transition-all ${
-                    vehicleControls.chargingActive
-                      ? 'bg-primary-500/20 border-primary-500/40 text-primary-400'
-                      : 'bg-surface-800/80 border-surface-700 text-surface-300'
-                  }`}
-                >
-                  <span className="text-3xl block mb-1">⚡</span>
-                  <span className="text-xs font-bold block">{vehicleControls.chargingActive ? 'Stop Charge' : 'Start Charge'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setVehicleControls({ ...vehicleControls, climateControl: !vehicleControls.climateControl })}
-                  className={`p-4 rounded-2xl border text-center transition-all ${
-                    vehicleControls.climateControl
-                      ? 'bg-secondary-500/20 border-secondary-500/40 text-secondary-400'
-                      : 'bg-surface-800/80 border-surface-700 text-surface-300'
-                  }`}
-                >
-                  <span className="text-3xl block mb-1">❄️</span>
-                  <span className="text-xs font-bold block">{vehicleControls.climateControl ? 'Climate ON' : 'Climate OFF'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setVehicleControls({ ...vehicleControls, flashersOn: !vehicleControls.flashersOn })}
-                  className={`p-4 rounded-2xl border text-center transition-all ${
-                    vehicleControls.flashersOn
-                      ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                      : 'bg-surface-800/80 border-surface-700 text-surface-300'
-                  }`}
-                >
-                  <span className="text-3xl block mb-1">🚨</span>
-                  <span className="text-xs font-bold block">{vehicleControls.flashersOn ? 'Flashers ON' : 'Flashers OFF'}</span>
-                </button>
-              </div>
-
-              {vehicleControls.climateControl && (
-                <div className="p-4 rounded-2xl bg-surface-800/50 border border-surface-700/50 flex items-center justify-between gap-4">
-                  <div className="text-xs">
-                    <span className="text-surface-400 block">Pre-Condition Target Temp</span>
-                    <span className="text-white font-bold text-base">{vehicleControls.targetTempFahrenheit}°F</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="60"
-                    max="80"
-                    value={vehicleControls.targetTempFahrenheit}
-                    onChange={(e) => setVehicleControls({ ...vehicleControls, targetTempFahrenheit: parseInt(e.target.value, 10) })}
-                    className="w-1/2 accent-secondary-500 cursor-pointer"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Battery Diagnostics Card */}
-            <Card variant="glass" padding="normal" className="flex flex-col justify-between">
-              <CardHeader title="Battery Health Diagnostics" subtitle="State of Health & Temperature" />
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-surface-400">State of Health (SoH):</span>
-                  <span className="text-emerald-400 font-bold text-sm">{activeVehicle.sohPercentage || 96.5}%</span>
-                </div>
-                <div className="w-full bg-surface-800 rounded-full h-2 overflow-hidden">
-                  <div className="bg-emerald-500 h-full" style={{ width: `${activeVehicle.sohPercentage || 96.5}%` }} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 py-3 border-y border-surface-700/50 text-xs">
-                  <div>
-                    <span className="text-surface-400 block">Pack Temperature</span>
-                    <span className="text-white font-bold">{activeVehicle.tempCelsius || 28}°C</span>
-                  </div>
-                  <div>
-                    <span className="text-surface-400 block">Pack Voltage</span>
-                    <span className="text-white font-bold">{activeVehicle.voltage || 390}V</span>
-                  </div>
-                  <div>
-                    <span className="text-surface-400 block">Fast Charge Cycles</span>
-                    <span className="text-white font-bold">{activeVehicle.fastChargeCycles || 42} Cycles</span>
-                  </div>
-                  <div>
-                    <span className="text-surface-400 block">Health Rating</span>
-                    <Badge variant="success" size="sm">EXCELLENT</Badge>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-surface-700/50">
-                <Button variant="outline" size="sm" fullWidth>
-                  Run Diagnostics
-                </Button>
-              </div>
-            </Card>
+        !activeVehicle ? (
+          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+            <span className="text-4xl block">🚗</span>
+            <h3 className="text-lg font-bold text-white">No vehicles registered.</h3>
+            <p className="text-xs text-surface-400">Click "+ Add Vehicle" above to register your EV in Supabase DB.</p>
+            <Button variant="primary" size="md" onClick={() => setIsRegisterVehicleModalOpen(true)}>
+              + Add Vehicle Now
+            </Button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Remote Controller Simulator Widget */}
+              <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
+                <CardHeader
+                  title="Smart Vehicle Controller (Live Telemetry)"
+                  subtitle={`Remote telemetry & interactive controls for ${activeVehicle.make} ${activeVehicle.model}`}
+                  action={
+                    <Badge variant={vehicleControls.doorsLocked ? 'neutral' : 'warning'} dot>
+                      {vehicleControls.doorsLocked ? 'LOCKED' : 'UNLOCKED'}
+                    </Badge>
+                  }
+                />
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 my-4">
+                  <button
+                    type="button"
+                    onClick={() => setVehicleControls({ ...vehicleControls, doorsLocked: !vehicleControls.doorsLocked })}
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      vehicleControls.doorsLocked
+                        ? 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    }`}
+                  >
+                    <span className="text-3xl block mb-1">{vehicleControls.doorsLocked ? '🔒' : '🔓'}</span>
+                    <span className="text-xs font-bold block">{vehicleControls.doorsLocked ? 'Unlock Doors' : 'Lock Doors'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVehicleControls({ ...vehicleControls, chargingActive: !vehicleControls.chargingActive })}
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      vehicleControls.chargingActive
+                        ? 'bg-primary-500/20 border-primary-500/40 text-primary-400'
+                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                    }`}
+                  >
+                    <span className="text-3xl block mb-1">⚡</span>
+                    <span className="text-xs font-bold block">{vehicleControls.chargingActive ? 'Stop Charge' : 'Start Charge'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVehicleControls({ ...vehicleControls, climateControl: !vehicleControls.climateControl })}
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      vehicleControls.climateControl
+                        ? 'bg-secondary-500/20 border-secondary-500/40 text-secondary-400'
+                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                    }`}
+                  >
+                    <span className="text-3xl block mb-1">❄️</span>
+                    <span className="text-xs font-bold block">{vehicleControls.climateControl ? 'Climate ON' : 'Climate OFF'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVehicleControls({ ...vehicleControls, flashersOn: !vehicleControls.flashersOn })}
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      vehicleControls.flashersOn
+                        ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                    }`}
+                  >
+                    <span className="text-3xl block mb-1">🚨</span>
+                    <span className="text-xs font-bold block">{vehicleControls.flashersOn ? 'Flashers ON' : 'Flashers OFF'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Vehicle Specs */}
+              <Card variant="glass" padding="normal" className="flex flex-col justify-between">
+                <CardHeader title="Vehicle Specifications" subtitle="Registered EV details" />
+                <div className="space-y-3 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-surface-400">Make &amp; Model:</span>
+                    <span className="text-white font-bold">{activeVehicle.make} {activeVehicle.model}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-400">License Plate:</span>
+                    <span className="text-primary-400 font-bold">{activeVehicle.licensePlate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-400">Battery Capacity:</span>
+                    <span className="text-white font-bold">{activeVehicle.batteryCapacityKwh} kWh</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-400">Connector Standard:</span>
+                    <span className="text-secondary-400 font-bold uppercase">{activeVehicle.connectorType}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )
       )}
 
       {/* TAB 2: Nearby Charging Stations & Slot Booking */}
@@ -552,7 +501,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">Nearby Clean Charging Stations</h2>
-            <Badge variant="primary">{nearbyStations.length} Active Ports</Badge>
+            <Badge variant="primary">{nearbyStations.length} Available Ports</Badge>
           </div>
 
           {isLoadingData ? (
@@ -561,8 +510,8 @@ export default function Dashboard() {
               <span>Loading live charging stations from Supabase...</span>
             </div>
           ) : nearbyStations.length === 0 ? (
-            <div className="p-8 text-center glass-card rounded-2xl border border-surface-700 text-surface-400">
-              No charging stations available at the moment.
+            <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 text-surface-400">
+              No charging stations available.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -587,10 +536,6 @@ export default function Dashboard() {
                         <span className="text-surface-400">Rate:</span>
                         <span className="text-white font-semibold">${station.pricingRatePerKwh} / kWh</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-surface-400">Max Power:</span>
-                        <span className="text-emerald-400 font-bold">{station.maxPowerOutputKw} kW</span>
-                      </div>
                     </div>
                   </div>
 
@@ -614,7 +559,9 @@ export default function Dashboard() {
           <div className="space-y-3 pt-4">
             <h3 className="text-md font-bold text-white">Your Reserved Bookings ({bookings.length})</h3>
             {bookings.length === 0 ? (
-              <p className="text-xs text-surface-500">No slot reservations found in database yet.</p>
+              <div className="p-6 text-center glass-card rounded-xl border border-surface-700 text-xs text-surface-400">
+                No bookings found.
+              </div>
             ) : (
               <div className="space-y-2">
                 {bookings.map((b) => (
@@ -629,7 +576,9 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <Badge variant="success" dot>{b.status.toUpperCase()}</Badge>
+                      <Badge variant={b.status === 'confirmed' ? 'success' : b.status === 'pending' ? 'warning' : 'danger'} dot>
+                        {b.status.toUpperCase()}
+                      </Badge>
                       <p className="text-emerald-400 font-bold mt-1">${b.estimatedCost}</p>
                     </div>
                   </div>
@@ -647,7 +596,7 @@ export default function Dashboard() {
             <div>
               <h3 className="text-lg font-bold text-white">Your Environmental Impact 🌿</h3>
               <p className="text-xs text-surface-400 mt-0.5">
-                By charging on EcoVolt's clean grid, you've prevented <span className="text-emerald-400 font-bold">340.5 kg CO2</span> emissions.
+                By charging on EcoVolt's clean grid, you've prevented <span className="text-emerald-400 font-bold">{sustainability?.co2SavedKg || 0} kg CO2</span> emissions.
               </p>
             </div>
             <div className="text-4xl">🌳</div>
@@ -655,7 +604,7 @@ export default function Dashboard() {
 
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-white tracking-tight">Charging History Log</h2>
-            <Table columns={historyColumns} data={historySessions} />
+            <Table columns={historyColumns} data={historySessions} emptyMessage="No charging sessions found." />
           </section>
         </div>
       )}
@@ -761,7 +710,7 @@ export default function Dashboard() {
         </form>
       </Modal>
 
-      {/* MODAL 2: Reserve Charging Slot (Connected to Express & Supabase) */}
+      {/* MODAL 2: Reserve Charging Slot (Status = Pending) */}
       <Modal
         isOpen={isBookSlotModalOpen}
         onClose={() => setIsBookSlotModalOpen(false)}
@@ -795,7 +744,7 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between">
               <span className="text-surface-400">Vehicle:</span>
-              <span className="text-white font-medium">{activeVehicle.make} {activeVehicle.model} ({activeVehicle.licensePlate})</span>
+              <span className="text-white font-medium">{activeVehicle?.make} {activeVehicle?.model} ({activeVehicle?.licensePlate})</span>
             </div>
             <div className="flex justify-between pt-1 border-t border-surface-700/50">
               <span className="text-surface-400">Estimated Cost:</span>
@@ -813,10 +762,10 @@ export default function Dashboard() {
               {isSubmittingBooking ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Reserving in DB...
+                  Submitting Request...
                 </span>
               ) : (
-                'Confirm Reservation'
+                'Submit Booking Request'
               )}
             </Button>
           </div>

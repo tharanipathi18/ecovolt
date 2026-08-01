@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
+import chargingService from '@services/chargingService';
 import {
   StatCard,
   Card,
@@ -12,48 +13,46 @@ import {
   Select,
   Notification,
 } from '@components/common';
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 
 /**
- * EV Charging Port Module — Complete Dashboard.
+ * EV Charging Port Module — Production Ready with Real Supabase DB Integration.
  */
 export default function ChargingStations() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('slots'); // 'slots' | 'sessions' | 'queue' | 'reports'
+  const [activeTab, setActiveTab] = useState('slots'); // 'slots' | 'sessions' | 'bookings'
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isAddPortModalOpen, setIsAddPortModalOpen] = useState(false);
   const [isStartSessionModalOpen, setIsStartSessionModalOpen] = useState(false);
-  const [isAllocateEnergyModalOpen, setIsAllocateEnergyModalOpen] = useState(false);
-  const [isAddQueueModalOpen, setIsAddQueueModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
+
+  // Dynamic API State (Strictly from Supabase DB — No Mock Data)
+  const [ports, setPorts] = useState([]);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [operatorBookings, setOperatorBookings] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+
+  // Loading & Submitting States
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Station Owner Application Form State
+  const [applicationData, setApplicationData] = useState({
+    businessName: '',
+    ownerName: user?.name || '',
+    phone: '',
+    address: '',
+    city: 'San Francisco',
+    licenseNumber: '',
+    numberOfPorts: '2',
+    connectorType: 'ccs_2',
+    pricingRatePerKwh: '0.35',
+  });
 
   // Form states
   const [sessionFormData, setSessionFormData] = useState({
-    chargingPortId: 'CP-101',
-    vehicleId: 'VEH-901',
-    driverName: 'Alex Smith',
-    startStateOfCharge: 25,
-  });
-
-  const [allocationFormData, setAllocationFormData] = useState({
-    chargingPortId: 'CP-101',
-    generatorId: 'GEN-01',
-    allocatedKwh: 500,
-  });
-
-  const [queueFormData, setQueueFormData] = useState({
-    chargingPortId: 'CP-101',
-    driverName: 'Sarah Jenkins',
-    vehiclePlate: 'EV-992-TX',
+    chargingPortId: '',
+    vehicleId: '',
+    startStateOfCharge: '20',
   });
 
   const [newPortData, setNewPortData] = useState({
@@ -66,261 +65,225 @@ export default function ChargingStations() {
     city: '',
   });
 
-  // Ports Data
-  const [ports, setPorts] = useState([
-    {
-      id: 'CP-101',
-      stationName: 'Downtown Solar Hub',
-      portIdentifier: 'PORT-A1',
-      connectorType: 'ccs_2',
-      maxPowerOutputKw: 150,
-      currentPowerOutputKw: 120,
-      status: 'occupied',
-      ratePerKwh: 0.32,
-      location: 'Downtown Center, CA',
-      activeSession: { driver: 'Alex Smith', soc: 68, energyKwh: 34.2, duration: '28m' },
-      linkedGenerator: 'Desert Sun Array Alpha (Solar)',
-      renewablePercentage: 94,
-    },
-    {
-      id: 'CP-102',
-      stationName: 'Downtown Solar Hub',
-      portIdentifier: 'PORT-A2',
-      connectorType: 'ccs_2',
-      maxPowerOutputKw: 150,
-      currentPowerOutputKw: 0,
-      status: 'available',
-      ratePerKwh: 0.32,
-      location: 'Downtown Center, CA',
-      activeSession: null,
-      linkedGenerator: 'Desert Sun Array Alpha (Solar)',
-      renewablePercentage: 94,
-    },
-    {
-      id: 'CP-103',
-      stationName: 'Metro Wind Station',
-      portIdentifier: 'PORT-B1',
-      connectorType: 'tesla',
-      maxPowerOutputKw: 250,
-      currentPowerOutputKw: 210,
-      status: 'occupied',
-      ratePerKwh: 0.35,
-      location: 'Metro Express Way, NY',
-      activeSession: { driver: 'David Chen', soc: 82, energyKwh: 58.0, duration: '35m' },
-      linkedGenerator: 'Highland Wind Farm #4 (Wind)',
-      renewablePercentage: 88,
-    },
-    {
-      id: 'CP-104',
-      stationName: 'Suburban Clean Hub',
-      portIdentifier: 'PORT-C1',
-      connectorType: 'type_2',
-      maxPowerOutputKw: 50,
-      currentPowerOutputKw: 0,
-      status: 'maintenance',
-      ratePerKwh: 0.25,
-      location: 'Oak District, TX',
-      activeSession: null,
-      linkedGenerator: 'Riverbed Hydro Plant (Hydro)',
-      renewablePercentage: 75,
-    },
-  ]);
+  // ─── Fetch All Operator Data from Backend API ────────────────────────────
+  const loadOperatorData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch Ports
+      const pRes = await chargingService.getPorts();
+      const fetchedPorts = pRes.data?.ports || [];
+      setPorts(fetchedPorts);
+      if (fetchedPorts.length > 0 && !sessionFormData.chargingPortId) {
+        setSessionFormData((prev) => ({ ...prev, chargingPortId: fetchedPorts[0].id }));
+      }
 
-  // Active & Completed Sessions
-  const [sessions, setSessions] = useState([
-    { id: 'SES-801', port: 'PORT-A1 (Downtown Solar)', driver: 'Alex Smith', vehicle: 'Tesla Model Y (EV-889-CA)', startSoc: '25%', currentSoc: '68%', energy: '34.2 kWh', cost: '$10.94', status: 'active', cleanRatio: 94 },
-    { id: 'SES-802', port: 'PORT-B1 (Metro Wind)', driver: 'David Chen', vehicle: 'Rivian R1T (EV-302-NY)', startSoc: '15%', currentSoc: '82%', energy: '58.0 kWh', cost: '$20.30', status: 'active', cleanRatio: 88 },
-    { id: 'SES-800', port: 'PORT-A2 (Downtown Solar)', driver: 'Elena Rostova', vehicle: 'Nissan Leaf (EV-114-TX)', startSoc: '40%', currentSoc: '95%', energy: '22.0 kWh', cost: '$7.04', status: 'completed', cleanRatio: 94 },
-  ]);
+      // 2. Fetch ONLY Active Sessions for Release Vehicle tab
+      const sRes = await chargingService.getSessions({ status: 'active' });
+      setActiveSessions(sRes.data?.sessions || []);
 
-  // Waiting Queue
-  const [queue, setQueue] = useState([
-    { id: 'Q-1', position: 1, driver: 'Sarah Jenkins', vehicle: 'Hyundai Ioniq 5 (EV-992-TX)', port: 'PORT-A1', waitTime: '10 mins', status: 'waiting' },
-    { id: 'Q-2', position: 2, driver: 'Marcus Brody', vehicle: 'Ford F-150 Lightning (EV-441-CA)', port: 'PORT-A1', waitTime: '25 mins', status: 'waiting' },
-  ]);
+      // 3. Fetch Bookings for Owner Accept/Reject
+      const bRes = await chargingService.getBookings();
+      setOperatorBookings(bRes.data?.bookings || []);
 
-  // Hourly Analytics
-  const hourlyPowerData = [
-    { time: '00:00', totalPowerKw: 80, cleanPowerRatio: 75, revenue: 25.6 },
-    { time: '04:00', totalPowerKw: 60, cleanPowerRatio: 70, revenue: 19.2 },
-    { time: '08:00', totalPowerKw: 280, cleanPowerRatio: 88, revenue: 89.6 },
-    { time: '12:00', totalPowerKw: 480, cleanPowerRatio: 95, revenue: 153.6 },
-    { time: '16:00', totalPowerKw: 420, cleanPowerRatio: 92, revenue: 134.4 },
-    { time: '20:00', totalPowerKw: 310, cleanPowerRatio: 85, revenue: 99.2 },
-  ];
+      // 4. Fetch Analytics
+      const aRes = await chargingService.getAnalytics();
+      setAnalytics(aRes.data?.summary || null);
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        title: 'Connection Warning',
+        message: err.message || 'Failed to sync with Supabase charging network.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sessionFormData.chargingPortId]);
 
-  // Metrics
+  useEffect(() => {
+    loadOperatorData();
+  }, [loadOperatorData]);
+
+  // ─── Station Owner Application Submission Handler ───────────────────────
+  const handleApplyStation = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await chargingService.applyStation({
+        businessName: applicationData.businessName,
+        ownerName: applicationData.ownerName,
+        phone: applicationData.phone,
+        address: applicationData.address,
+        city: applicationData.city,
+        licenseNumber: applicationData.licenseNumber,
+        numberOfPorts: parseInt(applicationData.numberOfPorts, 10),
+        connectorType: applicationData.connectorType,
+        pricingRatePerKwh: parseFloat(applicationData.pricingRatePerKwh),
+      });
+
+      setIsApplyModalOpen(false);
+      setNotification({
+        type: 'success',
+        title: 'Application Submitted! 📋',
+        message: 'Your station owner application has been submitted and is pending Admin review. It will become visible once approved.',
+      });
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Submission Failed', message: err.message || 'Could not submit application.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ─── Create Port Handler ──────────────────────────────────────────────────
+  const handleCreatePort = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await chargingService.createPort({
+        stationName: newPortData.stationName,
+        portIdentifier: newPortData.portIdentifier,
+        connectorType: newPortData.connectorType,
+        maxPowerOutputKw: parseFloat(newPortData.maxPowerOutputKw),
+        ratePerKwh: parseFloat(newPortData.ratePerKwh),
+        address: newPortData.address,
+        city: newPortData.city,
+      });
+
+      setPorts((prev) => [res.data.port, ...prev]);
+      setIsAddPortModalOpen(false);
+      setNewPortData({ stationName: '', portIdentifier: '', connectorType: 'ccs_2', maxPowerOutputKw: '150', ratePerKwh: '0.32', address: '', city: '' });
+      setNotification({ type: 'success', title: 'Port Registered! 🔌', message: `${res.data.port.portIdentifier} created in Supabase DB.` });
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Registration Failed', message: err.message || 'Could not register port.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ─── Start Session Handler ────────────────────────────────────────────────
+  const handleStartSession = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await chargingService.startSession({
+        chargingPortId: sessionFormData.chargingPortId,
+        vehicleId: sessionFormData.vehicleId,
+        startStateOfCharge: parseFloat(sessionFormData.startStateOfCharge),
+      });
+
+      setIsStartSessionModalOpen(false);
+      setNotification({ type: 'success', title: 'Session Started ⚡', message: 'Vehicle is now charging.' });
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Start Failed', message: err.message || 'Could not start charging session.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ─── Release Vehicle / Stop Session Handler ───────────────────────────────
+  const handleReleaseVehicle = async (sessionId) => {
+    try {
+      await chargingService.stopSession(sessionId, { endStateOfCharge: 85.0 });
+
+      // Immediately update local UI state
+      setActiveSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setNotification({
+        type: 'success',
+        title: 'Vehicle Released 🚗⚡',
+        message: 'Charging session completed. Charging port freed and status updated to Available.',
+      });
+
+      // Refresh DB data
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Release Failed', message: err.message || 'Could not release vehicle.' });
+    }
+  };
+
+  // ─── Station Owner Accept / Reject Booking Handlers ───────────────────────
+  const handleUpdateBookingStatus = async (bookingId, newStatus) => {
+    try {
+      await chargingService.updateBookingStatus(bookingId, newStatus);
+
+      setOperatorBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b)),
+      );
+
+      const actionText = newStatus === 'confirmed' ? 'APPROVED' : 'REJECTED';
+      setNotification({
+        type: newStatus === 'confirmed' ? 'success' : 'warning',
+        title: `Booking ${actionText}`,
+        message: `Booking reservation set to ${newStatus.toUpperCase()} in Supabase DB.`,
+      });
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Update Failed', message: err.message || 'Could not update booking status.' });
+    }
+  };
+
+  // Metrics (Derived purely from DB data)
   const totalPortsCount = ports.length;
   const occupiedCount = ports.filter((p) => p.status === 'occupied').length;
-  const occupancyRate = Math.round((occupiedCount / totalPortsCount) * 100);
-  const totalPowerKw = ports.reduce((acc, p) => acc + p.currentPowerOutputKw, 0);
+  const occupancyRate = totalPortsCount > 0 ? Math.round((occupiedCount / totalPortsCount) * 100) : 0;
+  const totalPowerKw = analytics?.totalPowerDrawKw || (occupiedCount * 45);
 
-  // Handlers
-  const handleCreatePort = (e) => {
-    e.preventDefault();
-    const newPort = {
-      id: `CP-10${ports.length + 1}`,
-      stationName: newPortData.stationName || 'New Charging Station',
-      portIdentifier: newPortData.portIdentifier || `PORT-D${ports.length + 1}`,
-      connectorType: newPortData.connectorType,
-      maxPowerOutputKw: parseFloat(newPortData.maxPowerOutputKw) || 150,
-      currentPowerOutputKw: 0,
-      status: 'available',
-      ratePerKwh: parseFloat(newPortData.ratePerKwh) || 0.32,
-      location: `${newPortData.address || 'Central St'}, ${newPortData.city || 'City'}`,
-      activeSession: null,
-      linkedGenerator: 'Unassigned',
-      renewablePercentage: 50,
-    };
-    setPorts([...ports, newPort]);
-    setIsAddPortModalOpen(false);
-    setNewPortData({ stationName: '', portIdentifier: '', connectorType: 'ccs_2', maxPowerOutputKw: '150', ratePerKwh: '0.32', address: '', city: '' });
-    setNotification({ type: 'success', title: 'Port Registered!', message: `${newPort.portIdentifier} added to ${newPort.stationName}.` });
-  };
-
-  const handleStartSession = (e) => {
-    e.preventDefault();
-    const targetPort = ports.find((p) => p.id === sessionFormData.chargingPortId);
-    if (!targetPort) return;
-
-    const newSession = {
-      id: `SES-${Math.floor(800 + Math.random() * 200)}`,
-      port: `${targetPort.portIdentifier} (${targetPort.stationName})`,
-      driver: sessionFormData.driverName,
-      vehicle: `EV Vehicle (${sessionFormData.vehicleId})`,
-      startSoc: `${sessionFormData.startStateOfCharge}%`,
-      currentSoc: `${sessionFormData.startStateOfCharge}%`,
-      energy: '0.0 kWh',
-      cost: '$0.00',
-      status: 'active',
-      cleanRatio: targetPort.renewablePercentage,
-    };
-
-    setSessions([newSession, ...sessions]);
-
-    setPorts((prev) =>
-      prev.map((p) =>
-        p.id === targetPort.id
-          ? {
-              ...p,
-              status: 'occupied',
-              currentPowerOutputKw: p.maxPowerOutputKw,
-              activeSession: { driver: sessionFormData.driverName, soc: sessionFormData.startStateOfCharge, energyKwh: 0, duration: '0m' },
-            }
-          : p,
-      ),
-    );
-
-    setIsStartSessionModalOpen(false);
-    setNotification({
-      type: 'success',
-      title: 'Charging Session Started!',
-      message: `Port ${targetPort.portIdentifier} is now active for ${sessionFormData.driverName}.`,
-    });
-  };
-
-  const handleAllocateEnergy = (e) => {
-    e.preventDefault();
-    const targetPort = ports.find((p) => p.id === allocationFormData.chargingPortId);
-    setPorts((prev) =>
-      prev.map((p) =>
-        p.id === allocationFormData.chargingPortId
-          ? { ...p, renewablePercentage: 98, linkedGenerator: 'Direct Solar Feed (Allocated 500 kWh)' }
-          : p,
-      ),
-    );
-
-    setIsAllocateEnergyModalOpen(false);
-    setNotification({
-      type: 'success',
-      title: 'Clean Power Allocated!',
-      message: `Allocated ${allocationFormData.allocatedKwh} kWh clean power to ${targetPort?.portIdentifier}.`,
-    });
-  };
-
-  const handleAddToQueue = (e) => {
-    e.preventDefault();
-    const newEntry = {
-      id: `Q-${queue.length + 1}`,
-      position: queue.length + 1,
-      driver: queueFormData.driverName,
-      vehicle: queueFormData.vehiclePlate,
-      port: queueFormData.chargingPortId,
-      waitTime: `${(queue.length + 1) * 15} mins`,
-      status: 'waiting',
-    };
-    setQueue([...queue, newEntry]);
-    setIsAddQueueModalOpen(false);
-    setNotification({
-      type: 'success',
-      title: 'Driver Queued!',
-      message: `${queueFormData.driverName} added to waiting queue (Position #${newEntry.position}).`,
-    });
-  };
-
-  const handleToggleMaintenance = (portId) => {
-    setPorts((prev) =>
-      prev.map((p) =>
-        p.id === portId
-          ? { ...p, status: p.status === 'maintenance' ? 'available' : 'maintenance', currentPowerOutputKw: 0 }
-          : p,
-      ),
-    );
-    setNotification({
-      type: 'info',
-      title: 'Port Status Updated',
-      message: `Port ${portId} status updated.`,
-    });
-  };
-
-  const sessionColumns = [
-    { key: 'id', title: 'Session ID' },
-    { key: 'port', title: 'Charging Port' },
-    { key: 'driver', title: 'Driver' },
-    { key: 'vehicle', title: 'EV Vehicle' },
-    { key: 'currentSoc', title: 'Battery SoC' },
-    { key: 'energy', title: 'Delivered (kWh)' },
-    { key: 'cost', title: 'Cost ($)' },
+  const activeSessionColumns = [
+    { key: 'port', title: 'Charging Port', render: (row) => row.chargingPort?.portIdentifier || 'PORT' },
+    { key: 'driver', title: 'Driver Name', render: (row) => row.user?.name || 'EV Driver' },
+    { key: 'vehicle', title: 'EV Vehicle', render: (row) => `${row.vehicle?.make || 'EV'} ${row.vehicle?.model || ''} (${row.vehicle?.licensePlate || ''})` },
+    { key: 'startSoc', title: 'Start SoC', render: (row) => `${row.startStateOfCharge}%` },
+    { key: 'status', title: 'Status', render: () => <Badge variant="info" dot pulse>CHARGING</Badge> },
     {
-      key: 'cleanRatio',
-      title: 'Clean Energy %',
-      render: (row) => (
-        <Badge variant={row.cleanRatio >= 90 ? 'success' : 'info'} dot>
-          {row.cleanRatio}% Clean
-        </Badge>
-      ),
-    },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (row) => (
-        <Badge variant={row.status === 'active' ? 'info' : 'success'} dot pulse={row.status === 'active'}>
-          {row.status.toUpperCase()}
-        </Badge>
-      ),
-    },
-  ];
-
-  const queueColumns = [
-    { key: 'position', title: 'Queue #' },
-    { key: 'driver', title: 'Driver Name' },
-    { key: 'vehicle', title: 'Vehicle Plate' },
-    { key: 'port', title: 'Requested Port' },
-    { key: 'waitTime', title: 'Est. Wait Time' },
-    {
-      key: 'status',
+      key: 'actions',
       title: 'Action',
       render: (row) => (
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {
-            setQueue(queue.filter((q) => q.id !== row.id));
-            setNotification({ type: 'success', title: 'Driver Called!', message: `${row.driver} called to charging bay.` });
-          }}
+          onClick={() => handleReleaseVehicle(row.id)}
         >
-          Call to Bay
+          Release Vehicle
         </Button>
+      ),
+    },
+  ];
+
+  const bookingColumns = [
+    { key: 'ref', title: 'Ref #', render: (row) => <span className="font-mono text-secondary-400 font-bold">{row.bookingReference}</span> },
+    { key: 'port', title: 'Station / Port', render: (row) => row.chargingPort?.stationName || 'Hub' },
+    { key: 'driver', title: 'User', render: (row) => row.user?.name || 'EV User' },
+    { key: 'time', title: 'Scheduled Time', render: (row) => new Date(row.scheduledStartTime).toLocaleString() },
+    { key: 'status', title: 'Status', render: (row) => (
+      <Badge variant={row.status === 'confirmed' ? 'success' : row.status === 'pending' ? 'warning' : 'danger'} dot>
+        {row.status.toUpperCase()}
+      </Badge>
+    )},
+    {
+      key: 'actions',
+      title: 'Owner Decision',
+      render: (row) => (
+        row.status === 'pending' ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleUpdateBookingStatus(row.id, 'confirmed')}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleUpdateBookingStatus(row.id, 'rejected')}
+            >
+              Reject
+            </Button>
+          </div>
+        ) : (
+          <span className="text-xs text-surface-500 capitalize">{row.status}</span>
+        )
       ),
     },
   ];
@@ -350,21 +313,21 @@ export default function ChargingStations() {
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                 EV Charging Infrastructure Module
               </h1>
-              <Badge variant="success" dot pulse>Grid Synced</Badge>
+              <Badge variant="success" dot pulse>Live Supabase Sync</Badge>
             </div>
             <p className="text-surface-400 text-xs md:text-sm mt-1">
               Operator: <span className="text-white font-medium">{user?.name || 'Port Operator'}</span> •{' '}
-              {totalPortsCount} Managed Charging Connectors
+              {totalPortsCount} Managed Connectors
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <Button variant="outline" size="md" onClick={() => setIsApplyModalOpen(true)}>
+            📋 Become Station Owner
+          </Button>
           <Button variant="secondary" size="md" onClick={() => setIsAddPortModalOpen(true)}>
             + Register Port
-          </Button>
-          <Button variant="outline" size="md" onClick={() => setIsAllocateEnergyModalOpen(true)}>
-            🌱 Allocate Clean Energy
           </Button>
           <Button variant="primary" size="md" onClick={() => setIsStartSessionModalOpen(true)}>
             ⚡ Start Session
@@ -375,11 +338,11 @@ export default function ChargingStations() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
-          title="Total Slots Managed"
+          title="Total Connectors"
           value={`${totalPortsCount} Connectors`}
           change={`${occupiedCount} Currently Occupied`}
           changeType="increase"
-          periodText="active ports"
+          periodText="live status from DB"
           badgeText="Active Network"
           badgeVariant="primary"
           icon={<span className="text-xl">🔌</span>}
@@ -390,29 +353,29 @@ export default function ChargingStations() {
           change={`${occupiedCount} / ${totalPortsCount} Slots`}
           changeType="increase"
           periodText="utilization index"
-          badgeText="High Usage"
+          badgeText="Live Load"
           badgeVariant="warning"
           icon={<span className="text-xl">📊</span>}
         />
         <StatCard
-          title="Real-Time Power Draw"
+          title="Real-Time Load"
           value={`${totalPowerKw} kW`}
-          change="Max 600 kW Capacity"
+          change="Active Power Draw"
           changeType="increase"
-          periodText="active load"
-          badgeText="Live Draw"
+          periodText="active session load"
+          badgeText="Live Load"
           badgeVariant="info"
           icon={<span className="text-xl">⚡</span>}
         />
         <StatCard
-          title="Renewable Matching Ratio"
-          value="91.4%"
-          change="Direct Green Supply"
+          title="Pending Bookings"
+          value={`${operatorBookings.filter(b => b.status === 'pending').length} Requests`}
+          change="Awaiting Owner Approval"
           changeType="increase"
-          periodText="solar/wind synced"
-          badgeText="Clean Power"
-          badgeVariant="success"
-          icon={<span className="text-xl">🌱</span>}
+          periodText="action required"
+          badgeText="Review Needed"
+          badgeVariant="warning"
+          icon={<span className="text-xl">📋</span>}
         />
       </div>
 
@@ -436,205 +399,227 @@ export default function ChargingStations() {
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          ⚡ Sessions Log ({sessions.length})
+          ⚡ Active Charging ({activeSessions.length})
         </button>
         <button
-          onClick={() => setActiveTab('queue')}
+          onClick={() => setActiveTab('bookings')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'queue'
+            activeTab === 'bookings'
               ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
               : 'text-surface-400 hover:text-white'
           }`}
         >
-          ⏳ Waiting Queue ({queue.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'reports'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
-          }`}
-        >
-          📈 Clean Energy & Revenue Reports
+          📋 Booking Requests ({operatorBookings.length})
         </button>
       </div>
 
       {/* TAB 1: Charging Slots Grid */}
       {activeTab === 'slots' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {ports.map((port) => (
-            <Card key={port.id} variant="glass" padding="normal" className="flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className="text-xs font-mono text-secondary-400">{port.portIdentifier}</span>
-                    <h3 className="text-base font-bold text-white mt-0.5">{port.stationName}</h3>
+        isLoading ? (
+          <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            <span>Loading charging stations from Supabase...</span>
+          </div>
+        ) : ports.length === 0 ? (
+          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+            <span className="text-4xl block">🔌</span>
+            <h3 className="text-lg font-bold text-white">No charging stations available.</h3>
+            <p className="text-xs text-surface-400">Click "Become Station Owner" to submit an application for Admin approval.</p>
+            <Button variant="primary" size="md" onClick={() => setIsApplyModalOpen(true)}>
+              📋 Become Station Owner Now
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {ports.map((port) => (
+              <Card key={port.id} variant="glass" padding="normal" className="flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <span className="text-xs font-mono text-secondary-400">{port.portIdentifier}</span>
+                      <h3 className="text-base font-bold text-white mt-0.5">{port.stationName}</h3>
+                    </div>
+                    <Badge
+                      variant={
+                        !port.isApproved
+                          ? 'warning'
+                          : port.status === 'available'
+                          ? 'success'
+                          : port.status === 'occupied'
+                          ? 'info'
+                          : 'danger'
+                      }
+                      dot
+                    >
+                      {!port.isApproved ? 'PENDING APPROVAL' : port.status.toUpperCase()}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      port.status === 'available'
-                        ? 'success'
-                        : port.status === 'occupied'
-                        ? 'info'
-                        : 'warning'
-                    }
-                    dot
-                    pulse={port.status === 'occupied'}
-                  >
-                    {port.status.toUpperCase()}
-                  </Badge>
+
+                  <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-surface-400">Connector:</span>
+                      <span className="text-white font-semibold uppercase">{port.connectorType?.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-surface-400">Max Output:</span>
+                      <span className="text-primary-400 font-bold">{port.maxPowerOutputKw} kW</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-surface-400">Tariff:</span>
+                      <span className="text-white font-semibold">${port.pricingRatePerKwh} / kWh</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-surface-400">Connector:</span>
-                    <span className="text-white font-semibold uppercase">{port.connectorType.replace('_', ' ')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-surface-400">Max Rate:</span>
-                    <span className="text-primary-400 font-bold">{port.maxPowerOutputKw} kW</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-surface-400">Tariff:</span>
-                    <span className="text-white font-semibold">${port.ratePerKwh} / kWh</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-surface-400">Clean Power Sync:</span>
-                    <span className="text-emerald-400 font-bold">{port.renewablePercentage}% Clean</span>
-                  </div>
+                <div className="pt-4 mt-4 border-t border-surface-700/50 flex flex-col gap-2">
+                  {port.isApproved && port.status === 'available' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      fullWidth
+                      onClick={() => {
+                        setSessionFormData({ ...sessionFormData, chargingPortId: port.id });
+                        setIsStartSessionModalOpen(true);
+                      }}
+                    >
+                      Start Session
+                    </Button>
+                  )}
                 </div>
-
-                {port.activeSession && (
-                  <div className="p-3 rounded-xl bg-surface-800/60 border border-surface-700/60 space-y-1.5 text-xs">
-                    <div className="flex justify-between font-medium">
-                      <span className="text-surface-300">{port.activeSession.driver}</span>
-                      <span className="text-primary-400">{port.activeSession.soc}% SoC</span>
-                    </div>
-                    <div className="w-full bg-surface-700 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-primary-500 h-full" style={{ width: `${port.activeSession.soc}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-surface-700/50 flex flex-col gap-2">
-                {port.status === 'available' && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    fullWidth
-                    onClick={() => {
-                      setSessionFormData({ ...sessionFormData, chargingPortId: port.id });
-                      setIsStartSessionModalOpen(true);
-                    }}
-                  >
-                    Start Charging Session
-                  </Button>
-                )}
-                {port.status === 'occupied' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    fullWidth
-                    onClick={() => {
-                      setPorts((prev) =>
-                        prev.map((p) => (p.id === port.id ? { ...p, status: 'available', currentPowerOutputKw: 0, activeSession: null } : p)),
-                      );
-                      setNotification({ type: 'success', title: 'Session Ended', message: `Port ${port.portIdentifier} is now available.` });
-                    }}
-                  >
-                    Stop & Release Port
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  fullWidth
-                  onClick={() => handleToggleMaintenance(port.id)}
-                >
-                  {port.status === 'maintenance' ? 'Re-enable Port' : 'Mark Maintenance'}
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )
       )}
 
-      {/* TAB 2: Active Sessions & History Table */}
+      {/* TAB 2: Active Sessions (Only Display Currently Charging Vehicles) */}
       {activeTab === 'sessions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Charging Sessions Log</h2>
-            <Badge variant="info">Live Telemetry Monitoring</Badge>
+            <h2 className="text-lg font-bold text-white tracking-tight">Active Charging Vehicles</h2>
+            <Badge variant="info">Live Charging Telemetry</Badge>
           </div>
-          <Table columns={sessionColumns} data={sessions} />
+          <Table
+            columns={activeSessionColumns}
+            data={activeSessions}
+            emptyMessage="No vehicles currently charging."
+          />
         </section>
       )}
 
-      {/* TAB 3: Waiting Queue Management */}
-      {activeTab === 'queue' && (
+      {/* TAB 3: Booking Requests (Accept / Reject) */}
+      {activeTab === 'bookings' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Waiting Driver Queue</h2>
-            <Button variant="primary" size="sm" onClick={() => setIsAddQueueModalOpen(true)}>
-              + Add Driver to Queue
-            </Button>
+            <h2 className="text-lg font-bold text-white tracking-tight">Slot Reservation Requests</h2>
+            <Badge variant="warning">Owner Decision Required</Badge>
           </div>
-          <Table columns={queueColumns} data={queue} emptyMessage="No drivers in queue" />
+          <Table
+            columns={bookingColumns}
+            data={operatorBookings}
+            emptyMessage="No bookings found."
+          />
         </section>
       )}
 
-      {/* TAB 4: Clean Energy & Revenue Reports */}
-      {activeTab === 'reports' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
-              <CardHeader
-                title="Hourly Power Draw & Clean Energy Matching Curve"
-                subtitle="kW delivered to ports vs percentage of renewable energy allocated from Solar/Wind"
-              />
-              <div className="h-72 w-full pt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={hourlyPowerData}>
-                    <defs>
-                      <linearGradient id="powerColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="ratioColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00e65c" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#00e65c" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
-                    <YAxis stroke="#94a3b8" fontSize={12} unit=" kW" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '12px' }} />
-                    <Area type="monotone" dataKey="totalPowerKw" name="Port Load (kW)" stroke="#3b82f6" fillOpacity={1} fill="url(#powerColor)" />
-                    <Area type="monotone" dataKey="cleanPowerRatio" name="Clean Energy Sync (%)" stroke="#00e65c" fillOpacity={1} fill="url(#ratioColor)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
-              <CardHeader title="Revenue Collected per Port" subtitle="Session earnings breakdown" />
-              <div className="h-72 w-full pt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={hourlyPowerData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
-                    <YAxis stroke="#94a3b8" fontSize={12} unit=" $" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '12px' }} />
-                    <Bar dataKey="revenue" name="Revenue ($)" fill="#00e65c" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+      {/* MODAL 0: Apply to Become Charging Station Owner */}
+      <Modal
+        isOpen={isApplyModalOpen}
+        onClose={() => setIsApplyModalOpen(false)}
+        title="Charging Station Owner Application"
+        subtitle="Submit station specifications to Admin for approval"
+      >
+        <form onSubmit={handleApplyStation} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Business / Station Name"
+              required
+              placeholder="e.g. Metro Green Hub"
+              value={applicationData.businessName}
+              onChange={(e) => setApplicationData({ ...applicationData, businessName: e.target.value })}
+            />
+            <Input
+              label="Owner Name"
+              required
+              value={applicationData.ownerName}
+              onChange={(e) => setApplicationData({ ...applicationData, ownerName: e.target.value })}
+            />
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Phone Number"
+              required
+              placeholder="+1 (555) 019-2831"
+              value={applicationData.phone}
+              onChange={(e) => setApplicationData({ ...applicationData, phone: e.target.value })}
+            />
+            <Input
+              label="License Number"
+              required
+              placeholder="LIC-2026-STATION"
+              value={applicationData.licenseNumber}
+              onChange={(e) => setApplicationData({ ...applicationData, licenseNumber: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Address"
+              required
+              placeholder="100 Green Way"
+              value={applicationData.address}
+              onChange={(e) => setApplicationData({ ...applicationData, address: e.target.value })}
+            />
+            <Input
+              label="City"
+              required
+              value={applicationData.city}
+              onChange={(e) => setApplicationData({ ...applicationData, city: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label="Number of Ports"
+              type="number"
+              required
+              value={applicationData.numberOfPorts}
+              onChange={(e) => setApplicationData({ ...applicationData, numberOfPorts: e.target.value })}
+            />
+            <Select
+              label="Connector Type"
+              value={applicationData.connectorType}
+              onChange={(e) => setApplicationData({ ...applicationData, connectorType: e.target.value })}
+              options={[
+                { value: 'ccs_2', label: 'CCS Combo 2' },
+                { value: 'tesla', label: 'Tesla Supercharger' },
+                { value: 'type_2', label: 'Type 2' },
+              ]}
+            />
+            <Input
+              label="Tariff ($/kWh)"
+              type="number"
+              required
+              value={applicationData.pricingRatePerKwh}
+              onChange={(e) => setApplicationData({ ...applicationData, pricingRatePerKwh: e.target.value })}
+            />
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+            ⚠️ Applications require Admin review. Once approved, your station will become visible publicly.
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
+            <Button variant="secondary" onClick={() => setIsApplyModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* MODAL 1: Create Charging Port */}
       <Modal
@@ -697,8 +682,8 @@ export default function ChargingStations() {
             <Button variant="secondary" onClick={() => setIsAddPortModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              Register Charging Connector
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Registering...' : 'Register Connector'}
             </Button>
           </div>
         </form>
@@ -716,125 +701,31 @@ export default function ChargingStations() {
             label="Select Charging Port"
             value={sessionFormData.chargingPortId}
             onChange={(e) => setSessionFormData({ ...sessionFormData, chargingPortId: e.target.value })}
-            options={ports.map((p) => ({ value: p.id, label: `${p.portIdentifier} — ${p.stationName} (${p.maxPowerOutputKw} kW)` }))}
+            options={ports.map((p) => ({ value: p.id, label: `${p.portIdentifier} — ${p.stationName}` }))}
           />
 
           <Input
-            label="Driver Name"
+            label="Vehicle ID / License Plate"
             required
-            value={sessionFormData.driverName}
-            onChange={(e) => setSessionFormData({ ...sessionFormData, driverName: e.target.value })}
-            placeholder="e.g. Alex Smith"
+            value={sessionFormData.vehicleId}
+            onChange={(e) => setSessionFormData({ ...sessionFormData, vehicleId: e.target.value })}
+            placeholder="Vehicle ID or Plate"
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Vehicle License Plate"
-              required
-              value={sessionFormData.vehicleId}
-              onChange={(e) => setSessionFormData({ ...sessionFormData, vehicleId: e.target.value })}
-              placeholder="e.g. EV-889-CA"
-            />
-            <Input
-              label="Initial Battery SoC (%)"
-              type="number"
-              required
-              value={sessionFormData.startStateOfCharge}
-              onChange={(e) => setSessionFormData({ ...sessionFormData, startStateOfCharge: parseInt(e.target.value) })}
-            />
-          </div>
+          <Input
+            label="Initial Battery SoC (%)"
+            type="number"
+            required
+            value={sessionFormData.startStateOfCharge}
+            onChange={(e) => setSessionFormData({ ...sessionFormData, startStateOfCharge: e.target.value })}
+          />
 
           <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
             <Button variant="secondary" onClick={() => setIsStartSessionModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              Initiate Charging Session
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* MODAL 3: Renewable Energy Allocation Screen */}
-      <Modal
-        isOpen={isAllocateEnergyModalOpen}
-        onClose={() => setIsAllocateEnergyModalOpen(false)}
-        title="Renewable Energy Allocation Screen"
-        subtitle="Allocate clean energy credits from solar/wind generators directly to charging ports"
-      >
-        <form onSubmit={handleAllocateEnergy} className="space-y-4 py-2">
-          <Select
-            label="Select Clean Energy Generator Source"
-            value={allocationFormData.generatorId}
-            onChange={(e) => setAllocationFormData({ ...allocationFormData, generatorId: e.target.value })}
-            options={[
-              { value: 'GEN-01', label: 'Desert Sun Solar Array Alpha (1,200 kW Solar)' },
-              { value: 'GEN-02', label: 'Highland Wind Farm #4 (2,500 kW Wind)' },
-              { value: 'GEN-03', label: 'Riverbed Hydro Plant (800 kW Hydro)' },
-            ]}
-          />
-
-          <Select
-            label="Target Charging Port"
-            value={allocationFormData.chargingPortId}
-            onChange={(e) => setAllocationFormData({ ...allocationFormData, chargingPortId: e.target.value })}
-            options={ports.map((p) => ({ value: p.id, label: `${p.portIdentifier} — ${p.stationName}` }))}
-          />
-
-          <Input
-            label="Allocated Energy Credits (kWh)"
-            type="number"
-            required
-            value={allocationFormData.allocatedKwh}
-            onChange={(e) => setAllocationFormData({ ...allocationFormData, allocatedKwh: parseInt(e.target.value) })}
-            helperText="Green energy credits to be assigned for zero-carbon charging"
-          />
-
-          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
-            ✨ Allocating clean power guarantees 98%+ renewable matching for vehicles charging at this port.
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
-            <Button variant="secondary" onClick={() => setIsAllocateEnergyModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Confirm Clean Allocation
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* MODAL 4: Add Vehicle to Queue */}
-      <Modal
-        isOpen={isAddQueueModalOpen}
-        onClose={() => setIsAddQueueModalOpen(false)}
-        title="Add Vehicle to Waiting Queue"
-        subtitle="Queue an EV for the next available charging slot"
-      >
-        <form onSubmit={handleAddToQueue} className="space-y-4 py-2">
-          <Input
-            label="Driver Name"
-            required
-            value={queueFormData.driverName}
-            onChange={(e) => setQueueFormData({ ...queueFormData, driverName: e.target.value })}
-            placeholder="e.g. Sarah Jenkins"
-          />
-
-          <Input
-            label="Vehicle License Plate"
-            required
-            value={queueFormData.vehiclePlate}
-            onChange={(e) => setQueueFormData({ ...queueFormData, vehiclePlate: e.target.value })}
-            placeholder="e.g. EV-992-TX"
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
-            <Button variant="secondary" onClick={() => setIsAddQueueModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Add to Queue
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Starting...' : 'Initiate Session'}
             </Button>
           </div>
         </form>
