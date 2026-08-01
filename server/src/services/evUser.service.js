@@ -21,9 +21,14 @@ export const registerVehicle = async (userId, data) => {
 
   return prisma.vehicle.create({
     data: {
-      ...data,
+      make: data.make.trim(),
+      model: data.model.trim(),
+      year: parseInt(data.year, 10),
+      licensePlate: data.licensePlate.toUpperCase().trim(),
+      vin: data.vin ? data.vin.trim() : `5YJ${Math.floor(100000 + Math.random() * 900000)}`,
+      batteryCapacityKwh: parseFloat(data.batteryCapacityKwh),
+      connectorType: data.connectorType,
       ownerId: userId,
-      licensePlate: data.licensePlate.toUpperCase(),
     },
   });
 };
@@ -54,9 +59,9 @@ export const getVehicleDetails = async (vehicleId, userId) => {
   return { vehicle, batteryReport: latestBatteryReport };
 };
 
-/** Get nearby charging stations */
+/** Get nearby charging stations (auto-seeds default stations if 0 exist in DB) */
 export const getNearbyStations = async (_longitude = -118.2437, _latitude = 34.0522, _radiusKm = 20) => {
-  return prisma.chargingPort.findMany({
+  let ports = await prisma.chargingPort.findMany({
     where: {
       status: { in: ['available', 'occupied', 'reserved'] },
       isPublic: true,
@@ -66,12 +71,82 @@ export const getNearbyStations = async (_longitude = -118.2437, _latitude = 34.0
     },
     take: 20,
   });
+
+  // Auto-seed initial public charging ports if DB is empty
+  if (ports.length === 0) {
+    let operator = await prisma.user.findFirst({ where: { role: 'ev_port' } });
+    if (!operator) {
+      operator = await prisma.user.findFirst({ where: { role: 'admin' } });
+    }
+    if (!operator) {
+      operator = await prisma.user.findFirst();
+    }
+
+    if (operator) {
+      const defaultPorts = [
+        {
+          operatorId: operator.id,
+          stationName: 'Downtown Solar Charging Hub',
+          portIdentifier: 'PORT-SOLAR-01',
+          connectorType: 'ccs_2',
+          maxPowerOutputKw: 150,
+          status: 'available',
+          pricingRatePerKwh: 0.32,
+          isPublic: true,
+          locationAddress: '100 Solar Way',
+          locationCity: 'San Francisco',
+        },
+        {
+          operatorId: operator.id,
+          stationName: 'Metro Wind Power Station',
+          portIdentifier: 'PORT-WIND-02',
+          connectorType: 'ccs_2',
+          maxPowerOutputKw: 120,
+          status: 'available',
+          pricingRatePerKwh: 0.28,
+          isPublic: true,
+          locationAddress: '250 Metro Blvd',
+          locationCity: 'San Francisco',
+        },
+        {
+          operatorId: operator.id,
+          stationName: 'Suburban Clean Energy Hub',
+          portIdentifier: 'PORT-CLEAN-03',
+          connectorType: 'type_2',
+          maxPowerOutputKw: 50,
+          status: 'available',
+          pricingRatePerKwh: 0.25,
+          isPublic: true,
+          locationAddress: '50 Suburban Park',
+          locationCity: 'San Francisco',
+        },
+      ];
+
+      for (const p of defaultPorts) {
+        await prisma.chargingPort.create({ data: p });
+      }
+
+      ports = await prisma.chargingPort.findMany({
+        where: {
+          status: { in: ['available', 'occupied', 'reserved'] },
+          isPublic: true,
+        },
+        include: {
+          linkedGenerators: { select: { id: true, name: true, type: true, capacityKw: true } },
+        },
+        take: 20,
+      });
+    }
+  }
+
+  return ports;
 };
 
 /** Reserve a charging slot at a port */
 export const createBooking = async (userId, data) => {
   const { chargingPortId, vehicleId, scheduledStartTime, durationMinutes } = data;
 
+  // 1. Verify charging port exists
   const port = await prisma.chargingPort.findUnique({ where: { id: chargingPortId } });
   if (!port) {
     const error = new Error('Charging port not found');
@@ -79,9 +154,54 @@ export const createBooking = async (userId, data) => {
     throw error;
   }
 
+  // 2. Verify vehicle exists and belongs to user
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+  if (!vehicle) {
+    const error = new Error('Vehicle not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (vehicle.ownerId !== userId) {
+    const error = new Error('Vehicle does not belong to the authenticated user');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Parse start time and compute duration
+  const requestedStart = new Date(scheduledStartTime);
+  if (isNaN(requestedStart.getTime())) {
+    const error = new Error('Invalid scheduled start time date');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const duration = durationMinutes ? parseInt(durationMinutes, 10) : 45;
+  const requestedEnd = new Date(requestedStart.getTime() + duration * 60 * 1000);
+
+  // 3. Double Booking Check: Check for overlapping bookings for the same charging port
+  const existingBookings = await prisma.booking.findMany({
+    where: {
+      chargingPortId,
+      status: { in: ['confirmed', 'pending'] },
+    },
+  });
+
+  const isDoubleBooked = existingBookings.some((existing) => {
+    const existingStart = new Date(existing.scheduledStartTime);
+    const existingEnd = new Date(existingStart.getTime() + existing.durationMinutes * 60 * 1000);
+    return requestedStart < existingEnd && requestedEnd > existingStart;
+  });
+
+  if (isDoubleBooked) {
+    const error = new Error('This charging port is already booked for the selected time window');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // 4. Create booking with Prisma into Supabase DB
   const bookingRef = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
-  const rate = port.pricingRatePerKwh || 0.30;
-  const estimatedEnergyKwh = (port.maxPowerOutputKw * ((durationMinutes || 45) / 60)) * 0.8;
+  const rate = port.pricingRatePerKwh || 0.35;
+  const estimatedEnergyKwh = Number(((port.maxPowerOutputKw * (duration / 60)) * 0.8).toFixed(2));
   const estimatedCost = Number((estimatedEnergyKwh * rate).toFixed(2));
 
   return prisma.booking.create({
@@ -90,10 +210,18 @@ export const createBooking = async (userId, data) => {
       userId,
       chargingPortId,
       vehicleId,
-      scheduledStartTime: new Date(scheduledStartTime),
-      durationMinutes: durationMinutes || 45,
+      scheduledStartTime: requestedStart,
+      durationMinutes: duration,
       estimatedCost,
       status: 'confirmed',
+    },
+    include: {
+      chargingPort: {
+        select: { id: true, stationName: true, portIdentifier: true, connectorType: true, pricingRatePerKwh: true },
+      },
+      vehicle: {
+        select: { id: true, make: true, model: true, licensePlate: true },
+      },
     },
   });
 };

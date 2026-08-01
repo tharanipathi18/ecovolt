@@ -36,6 +36,13 @@ export const validateCreateBooking = (data) => {
   if (!data.vehicleId) errors.push('Vehicle ID is required');
   if (!data.scheduledStartTime) errors.push('Scheduled start time is required');
 
+  if (data.scheduledStartTime) {
+    const dateObj = new Date(data.scheduledStartTime);
+    if (isNaN(dateObj.getTime())) {
+      errors.push('Invalid date format for scheduled start time');
+    }
+  }
+
   return { isValid: errors.length === 0, errors };
 };
 
