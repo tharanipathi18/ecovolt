@@ -16,7 +16,7 @@ model User {
   name                String
   email               String    @unique
   password            String
-  role                String    @default("ev_user") // admin, generator, ev_port, ev_user, fleet_manager
+  role                String    @default("ev_user") // admin, generator, ev_port, ev_user, fleet_manager, driver
   phone               String?
   avatar              String?
   addressStreet       String?
@@ -36,8 +36,9 @@ model User {
   generators           EnergyGenerator[]
   chargingPorts        ChargingPort[]
   vehicles             Vehicle[]
-  fleetVehiclesManaged FleetVehicle[]
-  driverProfile        Driver?
+  fleetVehiclesManaged FleetVehicle[]    @relation("FleetManager")
+  driverProfile        Driver?           @relation("DriverUser")
+  driversEmployed      Driver[]          @relation("DriverEmployer")
   bookings             Booking[]
   queues               ChargingQueue[]
   chargingSessions     ChargingSession[]
@@ -69,7 +70,6 @@ model Vehicle {
   chargingSessions     ChargingSession[]
   bookings             Booking[]
   queues               ChargingQueue[]
-  fleetVehicle         FleetVehicle?
   batteryReports       BatteryReport[]
   maintenanceReports   MaintenanceReport[]
 
@@ -230,22 +230,42 @@ model EnergyTransaction {
 }
 
 // ─── 9. FleetVehicle Model ────────────────────────────────────────
+// Stores fleet-specific commercial vehicles independently from consumer vehicles.
+// Fleet Managers register vehicles directly here with all vehicle details inline.
 model FleetVehicle {
   id                       String       @id @default(uuid())
+  // Fleet metadata
   fleetName                String
   managerId                String
-  manager                  User         @relation(fields: [managerId], references: [id], onDelete: Cascade)
-  vehicleId                String       @unique
-  vehicle                  Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  manager                  User         @relation("FleetManager", fields: [managerId], references: [id], onDelete: Cascade)
+  fleetUnitNumber          String
+
+  // Vehicle details (inline — no FK to consumer Vehicle table)
+  registrationNumber       String       @unique  // Vehicle Registration Number (e.g. TN-01-AB-1234)
+  make                     String       // Vehicle Brand (e.g. TATA, BYD)
+  model                    String       // Vehicle Model
+  vehicleType              String       @default("van") // van, truck, car, bus, bike
+  batteryCapacityKwh       Float        @default(60.0)
+  manufacturingYear        Int          @default(2023)
+  odometer                 Float        @default(0) // current odometer in km
+  connectorType            String       @default("ccs_2") // type_1, type_2, ccs_1, ccs_2, chademo, tesla
+
+  // Status & scheduling
+  vehicleStatus            String       @default("ACTIVE") // ACTIVE, IN_MAINTENANCE, CHARGING, INACTIVE
+  chargingPriority         String       @default("medium") // high, medium, low
+  preferredChargeStartTime String?
+  targetStateOfCharge      Float        @default(90.0)
+
+  // Driver assignment
   assignedDriverId         String?      @unique
   assignedDriver           Driver?      @relation(fields: [assignedDriverId], references: [id], onDelete: SetNull)
-  fleetUnitNumber          String
-  chargingPriority         String       @default("medium") // high, medium, low
-  preferredChargeStartTime String?      // e.g. "22:00"
-  targetStateOfCharge      Float        @default(90.0)
-  status                   String       @default("active") // active, maintenance, idle
+
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
+
+  // Relations
+  complaints               Complaint[]
+  maintenanceSchedules     MaintenanceSchedule[]
 
   @@map("fleet_vehicles")
 }
@@ -254,7 +274,10 @@ model FleetVehicle {
 model Driver {
   id                    String        @id @default(uuid())
   userId                String        @unique
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User          @relation("DriverUser", fields: [userId], references: [id], onDelete: Cascade)
+  // Employer (fleet manager)
+  employerManagerId     String
+  employer              User          @relation("DriverEmployer", fields: [employerManagerId], references: [id], onDelete: Cascade)
   licenseNumber         String        @unique
   licenseExpirationDate DateTime
   drivingRating         Float         @default(5.0)
@@ -265,11 +288,60 @@ model Driver {
 
   // Relations
   assignedFleetVehicle  FleetVehicle?
+  complaints            Complaint[]
 
   @@map("drivers")
 }
 
-// ─── 11. MaintenanceReport Model ──────────────────────────────────
+// ─── 11. Complaint Model ───────────────────────────────────────────
+// Driver raises a complaint about their fleet vehicle.
+// Fleet Manager reviews and schedules maintenance.
+model Complaint {
+  id              String       @id @default(uuid())
+  fleetVehicleId  String
+  fleetVehicle    FleetVehicle @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
+  driverId        String
+  driver          Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  managerId       String       // Denormalized for quick lookup
+  title           String       // e.g. "Battery Overheating"
+  description     String
+  category        String       @default("OTHER") // BATTERY, BRAKE, TYRE, CHARGING, MOTOR, OTHER
+  priority        String       @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status          String       @default("OPEN") // OPEN, IN_REVIEW, RESOLVED
+  reportedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  maintenanceSchedule MaintenanceSchedule?
+
+  @@map("complaints")
+}
+
+// ─── 12. MaintenanceSchedule Model ────────────────────────────────
+// Fleet Manager schedules maintenance in response to a complaint.
+// Sets FleetVehicle.vehicleStatus = IN_MAINTENANCE
+model MaintenanceSchedule {
+  id              String       @id @default(uuid())
+  fleetVehicleId  String
+  fleetVehicle    FleetVehicle @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
+  complaintId     String?      @unique
+  complaint       Complaint?   @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+  managerId       String
+  mechanic        String
+  workshop        String
+  maintenanceDate DateTime
+  estimatedCost   Float        @default(0)
+  actualCost      Float?
+  description     String
+  status          String       @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("maintenance_schedules")
+}
+
+// ─── 13. MaintenanceReport Model ──────────────────────────────────
 model MaintenanceReport {
   id             String        @id @default(uuid())
   vehicleId      String
@@ -289,7 +361,7 @@ model MaintenanceReport {
   @@map("maintenance_reports")
 }
 
-// ─── 12. BatteryReport Model ──────────────────────────────────────
+// ─── 14. BatteryReport Model ──────────────────────────────────────
 model BatteryReport {
   id                   String   @id @default(uuid())
   vehicleId            String
@@ -305,7 +377,7 @@ model BatteryReport {
   @@map("battery_reports")
 }
 
-// ─── 13. EnergyProductionLog Model ────────────────────────────────
+// ─── 15. EnergyProductionLog Model ────────────────────────────────
 model EnergyProductionLog {
   id                String          @id @default(uuid())
   generatorId       String
@@ -317,7 +389,7 @@ model EnergyProductionLog {
   @@map("energy_production_logs")
 }
 
-// ─── 14. Payment Model ─────────────────────────────────────────────
+// ─── 16. Payment Model ─────────────────────────────────────────────
 model Payment {
   id                  String          @id @default(uuid())
   chargingSessionId   String          @unique
@@ -334,7 +406,7 @@ model Payment {
   @@map("payments")
 }
 
-// ─── 15. Notification Model ────────────────────────────────────────
+// ─── 17. Notification Model ────────────────────────────────────────
 model Notification {
   id        String   @id @default(uuid())
   userId    String
