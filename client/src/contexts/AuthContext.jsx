@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
   // Session Restore on Page Refresh
   useEffect(() => {
     const loadUser = async () => {
-      if (!token) {
+      if (!token || user) {
         setLoading(false);
         return;
       }
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
     };
 
     loadUser();
-  }, [token]);
+  }, [token, user]);
 
   // Handle Google OAuth Callback (Supabase Auth session sync)
   useEffect(() => {

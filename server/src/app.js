@@ -38,6 +38,20 @@ const corsOptions = {
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
+// ─── Request Performance Logger ─────────────────────────────
+app.use((req, _res, next) => {
+  const start = Date.now();
+  const endpoint = `${req.method} ${req.originalUrl}`;
+
+  _res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (config.nodeEnv === 'development') {
+      console.info(`[PERF] Incoming Request: ${endpoint} | Status: ${_res.statusCode} | Duration: ${duration}ms`);
+    }
+  });
+  next();
+});
+
 // ─── Rate Limiting ─────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: config.rateLimitWindowMs,

@@ -175,22 +175,16 @@ export default function FleetManagement() {
     description: '',
   });
 
-  // ─── Load All Fleet Data ────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fRes, dRes, cRes, mRes, aRes] = await Promise.all([
-        fleetService.getFleetVehicles(),
-        fleetService.getDrivers(),
-        fleetService.getComplaints(),
-        fleetService.getMaintenanceSchedules(),
-        fleetService.getFleetAnalytics(),
-      ]);
-      setFleetVehicles(fRes.data?.fleetVehicles || []);
-      setDrivers(dRes.data?.drivers || []);
-      setComplaints(cRes.data?.complaints || []);
-      setMaintenanceSchedules(mRes.data?.schedules || []);
-      setAnalytics(aRes.data?.summary || null);
+      const res = await fleetService.getFleetDashboard();
+      const data = res.data || {};
+      setFleetVehicles(data.fleetVehicles || []);
+      setDrivers(data.drivers || []);
+      setComplaints(data.complaints || []);
+      setMaintenanceSchedules(data.schedules || []);
+      setAnalytics(data.analytics || null);
     } catch (err) {
       setNotification({
         type: 'error',

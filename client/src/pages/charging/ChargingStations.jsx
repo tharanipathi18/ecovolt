@@ -97,7 +97,7 @@ export default function ChargingStations() {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionFormData.chargingPortId]);
+  }, []);
 
   useEffect(() => {
     loadOperatorData();
@@ -169,6 +169,7 @@ export default function ChargingStations() {
       await chargingService.startSession({
         chargingPortId: sessionFormData.chargingPortId,
         vehicleId: sessionFormData.vehicleId,
+        bookingId: sessionFormData.bookingId,
         startStateOfCharge: parseFloat(sessionFormData.startStateOfCharge),
       });
 
@@ -281,6 +282,22 @@ export default function ChargingStations() {
               Reject
             </Button>
           </div>
+        ) : row.status === 'confirmed' ? (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setSessionFormData({
+                chargingPortId: row.chargingPortId,
+                vehicleId: row.vehicleId,
+                bookingId: row.id,
+                startStateOfCharge: 20,
+              });
+              setIsStartSessionModalOpen(true);
+            }}
+          >
+            ⚡ Start Session
+          </Button>
         ) : (
           <span className="text-xs text-surface-500 capitalize">{row.status}</span>
         )

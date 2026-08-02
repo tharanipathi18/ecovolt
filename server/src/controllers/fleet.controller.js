@@ -4,6 +4,16 @@ import * as fleetService from '../services/fleet.service.js';
 // ─── Fleet Vehicles ────────────────────────────────────────────────────────
 
 /**
+ * @desc    Get consolidated fleet dashboard data in a single optimized call
+ * @route   GET /api/fleet/dashboard
+ * @access  Private (fleet_manager, admin)
+ */
+export const getFleetDashboard = asyncHandler(async (req, res) => {
+  const dashboardData = await fleetService.getFleetDashboard(req.user.id, req.user.role);
+  res.status(200).json({ success: true, data: dashboardData });
+});
+
+/**
  * @desc    Get all fleet vehicles for current manager
  * @route   GET /api/fleet/vehicles
  * @access  Private (fleet_manager, admin)

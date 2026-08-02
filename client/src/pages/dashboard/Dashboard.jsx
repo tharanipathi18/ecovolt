@@ -87,8 +87,8 @@ export default function Dashboard() {
       const vRes = await evUserService.getVehicles();
       const fetchedVehicles = vRes.data?.vehicles || [];
       setVehicles(fetchedVehicles);
-      if (fetchedVehicles.length > 0 && !activeVehicleId) {
-        setActiveVehicleId(fetchedVehicles[0].id);
+      if (fetchedVehicles.length > 0) {
+        setActiveVehicleId((prev) => prev || fetchedVehicles[0].id);
       }
 
       // 2. Fetch Nearby Stations & Ports
@@ -117,7 +117,7 @@ export default function Dashboard() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [activeVehicleId]);
+  }, []);
 
   useEffect(() => {
     loadDashboardData();

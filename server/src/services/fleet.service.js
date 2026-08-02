@@ -435,33 +435,98 @@ export const updateMaintenanceStatus = async (scheduleId, managerId, status, act
   return updated;
 };
 
-// ─── Fleet Analytics ──────────────────────────────────────────────────────
+// ─── Fleet Dashboard & Analytics ──────────────────────────────────────────
 
 /**
- * Get fleet analytics summary — all counts from real DB data.
+ * Consolidated Fleet Dashboard Data.
+ * Fetches vehicles, drivers, complaints, and maintenance in a SINGLE optimized payload.
+ * Executes only 4 parallel queries instead of 13+, avoiding DB connection pool exhaustion.
+ */
+export const getFleetDashboard = async (managerId, role) => {
+  const where = role === 'admin' ? {} : { managerId };
+  const driverWhere = role === 'admin' ? {} : { employerManagerId: managerId };
+
+  const [fleetVehicles, drivers, complaints, schedules] = await Promise.all([
+    prisma.fleetVehicle.findMany({
+      where,
+      include: {
+        assignedDriver: {
+          include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+        },
+        complaints: { where: { status: 'OPEN' }, select: { id: true, title: true, priority: true } },
+        maintenanceSchedules: {
+          where: { status: { in: ['SCHEDULED', 'IN_PROGRESS'] } },
+          select: { id: true, status: true, maintenanceDate: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.driver.findMany({
+      where: driverWhere,
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        assignedFleetVehicle: {
+          select: { id: true, registrationNumber: true, make: true, model: true, vehicleStatus: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.complaint.findMany({
+      where,
+      include: {
+        driver: { include: { user: { select: { id: true, name: true, email: true } } } },
+        fleetVehicle: { select: { id: true, registrationNumber: true, make: true, model: true } },
+        maintenanceSchedule: { select: { id: true, status: true, maintenanceDate: true } },
+      },
+      orderBy: { reportedAt: 'desc' },
+    }),
+    prisma.maintenanceSchedule.findMany({
+      where,
+      include: {
+        fleetVehicle: { select: { id: true, registrationNumber: true, make: true, model: true } },
+        complaint: { select: { id: true, title: true, category: true, priority: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  // Compute analytics summary in memory without extra DB count queries
+  const totalFleet = fleetVehicles.length;
+  const activeCount = fleetVehicles.filter((v) => v.vehicleStatus === 'ACTIVE').length;
+  const chargingCount = fleetVehicles.filter((v) => v.vehicleStatus === 'CHARGING').length;
+  const maintenanceCount = fleetVehicles.filter((v) => v.vehicleStatus === 'IN_MAINTENANCE').length;
+  const inactiveCount = fleetVehicles.filter((v) => v.vehicleStatus === 'INACTIVE').length;
+  const assignedDriversCount = fleetVehicles.filter((v) => v.assignedDriverId !== null).length;
+  const pendingComplaintsCount = complaints.filter((c) => c.status === 'OPEN').length;
+  const totalMaintenanceCost = Number(
+    schedules.reduce((acc, s) => acc + (s.actualCost || s.estimatedCost || 0), 0).toFixed(2),
+  );
+
+  return {
+    fleetVehicles,
+    drivers,
+    complaints,
+    schedules,
+    analytics: {
+      totalFleet,
+      activeCount,
+      chargingCount,
+      maintenanceCount,
+      inactiveCount,
+      assignedDriversCount,
+      pendingComplaintsCount,
+      totalMaintenanceCost,
+    },
+  };
+};
+
+/**
+ * Get fleet analytics summary — optimized to 3 parallel DB queries instead of 9.
  */
 export const getFleetAnalytics = async (managerId, role) => {
   const where = role === 'admin' ? {} : { managerId };
 
-  const [
-    totalFleet,
-    activeCount,
-    chargingCount,
-    maintenanceCount,
-    inactiveCount,
-    assignedDriversCount,
-    pendingComplaintsCount,
-    allSchedules,
-    fleetVehicles,
-  ] = await Promise.all([
-    prisma.fleetVehicle.count({ where }),
-    prisma.fleetVehicle.count({ where: { ...where, vehicleStatus: 'ACTIVE' } }),
-    prisma.fleetVehicle.count({ where: { ...where, vehicleStatus: 'CHARGING' } }),
-    prisma.fleetVehicle.count({ where: { ...where, vehicleStatus: 'IN_MAINTENANCE' } }),
-    prisma.fleetVehicle.count({ where: { ...where, vehicleStatus: 'INACTIVE' } }),
-    prisma.fleetVehicle.count({ where: { ...where, assignedDriverId: { not: null } } }),
-    prisma.complaint.count({ where: { ...where, status: 'OPEN' } }),
-    prisma.maintenanceSchedule.findMany({ where, select: { estimatedCost: true, actualCost: true } }),
+  const [fleetVehicles, openComplaintsCount, allSchedules] = await Promise.all([
     prisma.fleetVehicle.findMany({
       where,
       include: {
@@ -471,9 +536,19 @@ export const getFleetAnalytics = async (managerId, role) => {
       },
       orderBy: { createdAt: 'desc' },
     }),
+    prisma.complaint.count({ where: { ...where, status: 'OPEN' } }),
+    prisma.maintenanceSchedule.findMany({ where, select: { estimatedCost: true, actualCost: true } }),
   ]);
 
-  const totalMaintenanceCost = allSchedules.reduce((acc, s) => acc + (s.actualCost || s.estimatedCost || 0), 0);
+  const totalFleet = fleetVehicles.length;
+  const activeCount = fleetVehicles.filter((v) => v.vehicleStatus === 'ACTIVE').length;
+  const chargingCount = fleetVehicles.filter((v) => v.vehicleStatus === 'CHARGING').length;
+  const maintenanceCount = fleetVehicles.filter((v) => v.vehicleStatus === 'IN_MAINTENANCE').length;
+  const inactiveCount = fleetVehicles.filter((v) => v.vehicleStatus === 'INACTIVE').length;
+  const assignedDriversCount = fleetVehicles.filter((v) => v.assignedDriverId !== null).length;
+  const totalMaintenanceCost = Number(
+    allSchedules.reduce((acc, s) => acc + (s.actualCost || s.estimatedCost || 0), 0).toFixed(2),
+  );
 
   return {
     summary: {
@@ -483,8 +558,8 @@ export const getFleetAnalytics = async (managerId, role) => {
       maintenanceCount,
       inactiveCount,
       assignedDriversCount,
-      pendingComplaintsCount,
-      totalMaintenanceCost: Number(totalMaintenanceCost.toFixed(2)),
+      pendingComplaintsCount: openComplaintsCount,
+      totalMaintenanceCost,
     },
     fleetVehicles,
   };

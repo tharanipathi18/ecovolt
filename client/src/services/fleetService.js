@@ -5,6 +5,10 @@ import apiClient from './apiClient';
  * Handles fleet vehicle registration, driver management, complaints, maintenance scheduling, and analytics.
  */
 const fleetService = {
+  // ─── Consolidated Dashboard ──────────────────────────────────────
+  /** Get consolidated fleet dashboard data in a single request */
+  getFleetDashboard: () => apiClient.get('/fleet/dashboard'),
+
   // ─── Fleet Vehicles ──────────────────────────────────────────────
   /** Get all fleet vehicles */
   getFleetVehicles: () => apiClient.get('/fleet/vehicles'),

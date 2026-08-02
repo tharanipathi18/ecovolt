@@ -78,7 +78,7 @@ export default function EnergyOverview() {
     } finally {
       setIsLoading(false);
     }
-  }, [uploadData.generatorId]);
+  }, []);
 
   useEffect(() => {
     loadEnergyData();

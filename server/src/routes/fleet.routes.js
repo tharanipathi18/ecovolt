@@ -14,6 +14,9 @@ const router = Router();
 
 router.use(protect);
 
+// ─── Consolidated Dashboard ────────────────────────────────────────────────
+router.get('/dashboard', authorize('fleet_manager', 'admin'), fleetController.getFleetDashboard);
+
 // ─── Fleet Vehicles ────────────────────────────────────────────────────────
 router.get('/vehicles', authorize('fleet_manager', 'admin'), fleetController.getFleetVehicles);
 router.post(

@@ -95,7 +95,7 @@ export const getSessions = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const startSession = asyncHandler(async (req, res) => {
-  const session = await chargingService.startChargingSession(req.user.id, req.body);
+  const session = await chargingService.startChargingSession(req.user.id, req.user.role, req.body);
   res.status(201).json({
     success: true,
     message: 'Charging session started successfully',

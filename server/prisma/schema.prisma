@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,323 +7,276 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── 1. User Model ────────────────────────────────────────────────
 model User {
-  id                  String    @id @default(uuid())
-  name                String
-  email               String    @unique
-  password            String
-  role                String    @default("ev_user") // admin, generator, ev_port, ev_user, fleet_manager, driver
-  phone               String?
-  avatar              String?
-  addressStreet       String?
-  addressCity         String?
-  addressState        String?
-  addressZipCode      String?
-  addressCountry      String?   @default("USA")
-  isActive            Boolean   @default(true)
-  isEmailVerified     Boolean   @default(false)
-  lastLogin           DateTime?
-  resetPasswordToken  String?
-  resetPasswordExpire DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  // Relations
-  generators           EnergyGenerator[]
-  chargingPorts        ChargingPort[]
-  vehicles             Vehicle[]
-  fleetVehiclesManaged FleetVehicle[]    @relation("FleetManager")
-  driverProfile        Driver?           @relation("DriverUser")
-  driversEmployed      Driver[]          @relation("DriverEmployer")
+  id                   String              @id @default(uuid())
+  name                 String
+  email                String              @unique
+  password             String
+  role                 String              @default("ev_user")
+  phone                String?
+  avatar               String?
+  addressStreet        String?
+  addressCity          String?
+  addressState         String?
+  addressZipCode       String?
+  addressCountry       String?             @default("USA")
+  isActive             Boolean             @default(true)
+  isEmailVerified      Boolean             @default(false)
+  lastLogin            DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpire  DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
   bookings             Booking[]
+  chargingPorts        ChargingPort[]
   queues               ChargingQueue[]
   chargingSessions     ChargingSession[]
+  driversEmployed      Driver[]            @relation("DriverEmployer")
+  driverProfile        Driver?             @relation("DriverUser")
+  generators           EnergyGenerator[]
+  fleetVehiclesManaged FleetVehicle[]      @relation("FleetManager")
   maintenanceReports   MaintenanceReport[]
-  payments             Payment[]
   notifications        Notification[]
+  payments             Payment[]
+  vehicles             Vehicle[]
 
   @@map("users")
 }
 
-// ─── 2. Vehicle Model ─────────────────────────────────────────────
 model Vehicle {
-  id                   String            @id @default(uuid())
+  id                   String              @id @default(uuid())
   ownerId              String
-  owner                User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   make                 String
   model                String
   year                 Int
-  licensePlate         String            @unique
-  vin                  String?           @unique
+  licensePlate         String              @unique
+  vin                  String?             @unique
   batteryCapacityKwh   Float
-  currentStateOfCharge Float             @default(80.0)
-  connectorType        String            // type_1, type_2, ccs_1, ccs_2, chademo, tesla
-  isActive             Boolean           @default(true)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-
-  // Relations
-  chargingSessions     ChargingSession[]
+  currentStateOfCharge Float               @default(80)
+  connectorType        String
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  batteryReports       BatteryReport[]
   bookings             Booking[]
   queues               ChargingQueue[]
-  batteryReports       BatteryReport[]
+  chargingSessions     ChargingSession[]
   maintenanceReports   MaintenanceReport[]
+  owner                User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@map("vehicles")
 }
 
-// ─── 3. EnergyGenerator Model ────────────────────────────────────
 model EnergyGenerator {
-  id                      String              @id @default(uuid())
-  name                    String
-  operatorId              String
-  operator                User                @relation(fields: [operatorId], references: [id], onDelete: Cascade)
-  type                    String              // solar, wind, hydro, biomass
-  capacityKw              Float
-  currentOutputKw         Float               @default(0)
-  excessEnergyKw          Float               @default(0)
-  tariffRatePerKwh        Float               @default(0.15)
-  totalRevenue            Float               @default(0)
-  status                  String              @default("active") // active, maintenance, offline
-  gridConnection          String              @default("grid") // grid, microgrid, hybrid
-  locationAddress         String?
-  locationCity            String?
-  locationState           String?
-  latitude                Float?
-  longitude               Float?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-
-  // Relations
-  linkedPorts             ChargingPort[]      @relation("GeneratorToPort")
-  transactions            EnergyTransaction[]
-  productionLogs          EnergyProductionLog[]
+  id               String                @id @default(uuid())
+  name             String
+  operatorId       String
+  type             String
+  capacityKw       Float
+  currentOutputKw  Float                 @default(0)
+  excessEnergyKw   Float                 @default(0)
+  tariffRatePerKwh Float                 @default(0.15)
+  totalRevenue     Float                 @default(0)
+  status           String                @default("active")
+  gridConnection   String                @default("grid")
+  locationAddress  String?
+  locationCity     String?
+  locationState    String?
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  operator         User                  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  productionLogs   EnergyProductionLog[]
+  transactions     EnergyTransaction[]
+  linkedPorts      ChargingPort[]        @relation("GeneratorToPort")
 
   @@map("energy_generators")
 }
 
-// ─── 4. ChargingPort Model ────────────────────────────────────────
 model ChargingPort {
-  id                String            @id @default(uuid())
-  operatorId        String
-  operator          User              @relation(fields: [operatorId], references: [id], onDelete: Cascade)
-  stationName       String
-  portIdentifier    String
-  connectorType     String            // type_1, type_2, ccs_1, ccs_2, chademo, tesla
-  maxPowerOutputKw  Float             @default(50)
-  status            String            @default("available") // available, occupied, maintenance, offline, reserved, pending, rejected
-  pricingRatePerKwh Float             @default(0.35)
-  isPublic          Boolean           @default(true)
-  latitude          Float?
-  longitude         Float?
-  locationAddress   String?
-  locationCity      String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  // Station Owner Application & Admin Approval Fields
-  isApproved        Boolean           @default(true)
-  approvalStatus    String            @default("APPROVED") // PENDING, APPROVED, REJECTED
-  businessName      String?
-  ownerName         String?
-  phone             String?
-  documentsUrl      String?
-  photosUrl         String?
-  licenseNumber     String?
-  numberOfPorts     Int               @default(1)
-
-  // Relations
-  linkedGenerators   EnergyGenerator[] @relation("GeneratorToPort")
+  id                 String              @id @default(uuid())
+  operatorId         String
+  stationName        String
+  portIdentifier     String
+  connectorType      String
+  maxPowerOutputKw   Float               @default(50)
+  status             String              @default("available")
+  pricingRatePerKwh  Float               @default(0.35)
+  isPublic           Boolean             @default(true)
+  latitude           Float?
+  longitude          Float?
+  locationAddress    String?
+  locationCity       String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  approvalStatus     String              @default("APPROVED")
+  businessName       String?
+  documentsUrl       String?
+  isApproved         Boolean             @default(true)
+  licenseNumber      String?
+  numberOfPorts      Int                 @default(1)
+  ownerName          String?
+  phone              String?
+  photosUrl          String?
+  bookings           Booking[]
+  operator           User                @relation(fields: [operatorId], references: [id], onDelete: Cascade)
   queues             ChargingQueue[]
   sessions           ChargingSession[]
   transactions       EnergyTransaction[]
-  bookings           Booking[]
   maintenanceReports MaintenanceReport[]
+  linkedGenerators   EnergyGenerator[]   @relation("GeneratorToPort")
 
   @@map("charging_ports")
 }
 
-// ─── 5. ChargingQueue Model ───────────────────────────────────────
 model ChargingQueue {
   id                       String       @id @default(uuid())
   chargingPortId           String
-  chargingPort             ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
   userId                   String
-  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicleId                String
-  vehicle                  Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   queuePosition            Int
   estimatedWaitTimeMinutes Int          @default(15)
-  status                   String       @default("waiting") // waiting, called, expired, cancelled
+  status                   String       @default("waiting")
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
+  chargingPort             ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle                  Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("charging_queues")
 }
 
-// ─── 6. ChargingSession Model ─────────────────────────────────────
 model ChargingSession {
-  id                         String       @id @default(uuid())
-  userId                     String
-  user                       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chargingPortId             String
-  chargingPort               ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
-  vehicleId                  String
-  vehicle                    Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  startTime                  DateTime     @default(now())
-  endTime                    DateTime?
-  startStateOfCharge         Float
-  endStateOfCharge           Float?
-  energyConsumedKwh          Float        @default(0)
-  cost                       Float        @default(0)
-  renewableEnergyPercentage  Float        @default(100.0)
-  status                     String       @default("active") // active, completed, interrupted
-  createdAt                  DateTime     @default(now())
-  updatedAt                  DateTime     @updatedAt
-
-  // Relations
-  payment                    Payment?
+  id                        String       @id @default(uuid())
+  userId                    String
+  chargingPortId            String
+  vehicleId                 String
+  startTime                 DateTime     @default(now())
+  endTime                   DateTime?
+  startStateOfCharge        Float
+  endStateOfCharge          Float?
+  energyConsumedKwh         Float        @default(0)
+  cost                      Float        @default(0)
+  renewableEnergyPercentage Float        @default(100)
+  status                    String       @default("active")
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+  chargingPort              ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  user                      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle                   Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  payment                   Payment?
 
   @@map("charging_sessions")
 }
 
-// ─── 7. Booking Model ─────────────────────────────────────────────
 model Booking {
   id                 String       @id @default(uuid())
   bookingReference   String       @unique
   userId             String
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   chargingPortId     String
-  chargingPort       ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
   vehicleId          String
-  vehicle            Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   scheduledStartTime DateTime
   durationMinutes    Int          @default(45)
-  status             String       @default("pending") // pending, confirmed, completed, cancelled, rejected
+  status             String       @default("pending")
   estimatedCost      Float        @default(0)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+  chargingPort       ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle            Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("bookings")
 }
 
-// ─── 8. EnergyTransaction Model ──────────────────────────────────
 model EnergyTransaction {
   id                   String          @id @default(uuid())
   transactionReference String          @unique
   generatorId          String
-  generator            EnergyGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
   chargingPortId       String
-  chargingPort         ChargingPort    @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
   energyAmountKwh      Float
   tariffRatePerKwh     Float
   totalCost            Float
-  status               String          @default("settled") // pending, settled, failed
+  status               String          @default("settled")
   timestamp            DateTime        @default(now())
   createdAt            DateTime        @default(now())
+  chargingPort         ChargingPort    @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  generator            EnergyGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
 
   @@map("energy_transactions")
 }
 
-// ─── 9. FleetVehicle Model ────────────────────────────────────────
-// Stores fleet-specific commercial vehicles independently from consumer vehicles.
-// Fleet Managers register vehicles directly here with all vehicle details inline.
 model FleetVehicle {
-  id                       String       @id @default(uuid())
-  // Fleet metadata
+  id                       String                @id @default(uuid())
   fleetName                String
   managerId                String
-  manager                  User         @relation("FleetManager", fields: [managerId], references: [id], onDelete: Cascade)
+  assignedDriverId         String?               @unique
   fleetUnitNumber          String
-
-  // Vehicle details (inline — no FK to consumer Vehicle table)
-  registrationNumber       String       @unique  // Vehicle Registration Number (e.g. TN-01-AB-1234)
-  make                     String       // Vehicle Brand (e.g. TATA, BYD)
-  model                    String       // Vehicle Model
-  vehicleType              String       @default("van") // van, truck, car, bus, bike
-  batteryCapacityKwh       Float        @default(60.0)
-  manufacturingYear        Int          @default(2023)
-  odometer                 Float        @default(0) // current odometer in km
-  connectorType            String       @default("ccs_2") // type_1, type_2, ccs_1, ccs_2, chademo, tesla
-
-  // Status & scheduling
-  vehicleStatus            String       @default("ACTIVE") // ACTIVE, IN_MAINTENANCE, CHARGING, INACTIVE
-  chargingPriority         String       @default("medium") // high, medium, low
+  chargingPriority         String                @default("medium")
   preferredChargeStartTime String?
-  targetStateOfCharge      Float        @default(90.0)
-
-  // Driver assignment
-  assignedDriverId         String?      @unique
-  assignedDriver           Driver?      @relation(fields: [assignedDriverId], references: [id], onDelete: SetNull)
-
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
-
-  // Relations
+  targetStateOfCharge      Float                 @default(90)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  batteryCapacityKwh       Float                 @default(60.0)
+  connectorType            String                @default("ccs_2")
+  make                     String
+  manufacturingYear        Int                   @default(2023)
+  model                    String
+  odometer                 Float                 @default(0)
+  registrationNumber       String                @unique
+  vehicleStatus            String                @default("ACTIVE")
+  vehicleType              String                @default("van")
   complaints               Complaint[]
+  assignedDriver           Driver?               @relation(fields: [assignedDriverId], references: [id])
+  manager                  User                  @relation("FleetManager", fields: [managerId], references: [id], onDelete: Cascade)
   maintenanceSchedules     MaintenanceSchedule[]
 
   @@map("fleet_vehicles")
 }
 
-// ─── 10. Driver Model ──────────────────────────────────────────────
 model Driver {
   id                    String        @id @default(uuid())
   userId                String        @unique
-  user                  User          @relation("DriverUser", fields: [userId], references: [id], onDelete: Cascade)
-  // Employer (fleet manager)
-  employerManagerId     String
-  employer              User          @relation("DriverEmployer", fields: [employerManagerId], references: [id], onDelete: Cascade)
   licenseNumber         String        @unique
   licenseExpirationDate DateTime
   drivingRating         Float         @default(5.0)
   ecoScore              Float         @default(100.0)
-  status                String        @default("available") // available, on_duty, off_duty
+  status                String        @default("available")
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
-
-  // Relations
-  assignedFleetVehicle  FleetVehicle?
+  employerManagerId     String
   complaints            Complaint[]
+  employer              User          @relation("DriverEmployer", fields: [employerManagerId], references: [id], onDelete: Cascade)
+  user                  User          @relation("DriverUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedFleetVehicle  FleetVehicle?
 
   @@map("drivers")
 }
 
-// ─── 11. Complaint Model ───────────────────────────────────────────
-// Driver raises a complaint about their fleet vehicle.
-// Fleet Manager reviews and schedules maintenance.
 model Complaint {
-  id              String       @id @default(uuid())
-  fleetVehicleId  String
-  fleetVehicle    FleetVehicle @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
-  driverId        String
-  driver          Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  managerId       String       // Denormalized for quick lookup
-  title           String       // e.g. "Battery Overheating"
-  description     String
-  category        String       @default("OTHER") // BATTERY, BRAKE, TYRE, CHARGING, MOTOR, OTHER
-  priority        String       @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  status          String       @default("OPEN") // OPEN, IN_REVIEW, RESOLVED
-  reportedAt      DateTime     @default(now())
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  // Relations
+  id                  String               @id @default(uuid())
+  fleetVehicleId      String
+  driverId            String
+  managerId           String
+  title               String
+  description         String
+  category            String               @default("OTHER")
+  priority            String               @default("MEDIUM")
+  status              String               @default("OPEN")
+  reportedAt          DateTime             @default(now())
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  driver              Driver               @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  fleetVehicle        FleetVehicle         @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
   maintenanceSchedule MaintenanceSchedule?
 
   @@map("complaints")
 }
 
-// ─── 12. MaintenanceSchedule Model ────────────────────────────────
-// Fleet Manager schedules maintenance in response to a complaint.
-// Sets FleetVehicle.vehicleStatus = IN_MAINTENANCE
 model MaintenanceSchedule {
   id              String       @id @default(uuid())
   fleetVehicleId  String
-  fleetVehicle    FleetVehicle @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
   complaintId     String?      @unique
-  complaint       Complaint?   @relation(fields: [complaintId], references: [id], onDelete: SetNull)
   managerId       String
   mechanic        String
   workshop        String
@@ -334,89 +284,86 @@ model MaintenanceSchedule {
   estimatedCost   Float        @default(0)
   actualCost      Float?
   description     String
-  status          String       @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  status          String       @default("SCHEDULED")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  complaint       Complaint?   @relation(fields: [complaintId], references: [id])
+  fleetVehicle    FleetVehicle @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
 
   @@map("maintenance_schedules")
 }
 
-// ─── 13. MaintenanceReport Model ──────────────────────────────────
 model MaintenanceReport {
   id             String        @id @default(uuid())
   vehicleId      String
-  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  reportedById   String
-  reportedBy     User          @relation(fields: [reportedById], references: [id], onDelete: Cascade)
   chargingPortId String?
-  chargingPort   ChargingPort? @relation(fields: [chargingPortId], references: [id], onDelete: SetNull)
+  reportedById   String
   title          String
   description    String
-  priority       String        @default("medium") // low, medium, high, critical
-  status         String        @default("open") // open, in_progress, resolved
+  priority       String        @default("medium")
+  status         String        @default("open")
   estimatedCost  Float         @default(0)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  chargingPort   ChargingPort? @relation(fields: [chargingPortId], references: [id])
+  reportedBy     User          @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("maintenance_reports")
 }
 
-// ─── 14. BatteryReport Model ──────────────────────────────────────
 model BatteryReport {
-  id                   String   @id @default(uuid())
-  vehicleId            String
-  vehicle              Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  stateOfHealth        Float
-  packTemperature      Float
-  voltage              Float
-  fastChargeCycles     Int
-  internalResistance   Float?
-  diagnosticStatus     String   @default("healthy") // healthy, warning, critical
-  reportedAt           DateTime @default(now())
+  id                 String   @id @default(uuid())
+  vehicleId          String
+  voltage            Float
+  fastChargeCycles   Int
+  reportedAt         DateTime @default(now())
+  diagnosticStatus   String   @default("healthy")
+  internalResistance Float?
+  packTemperature    Float
+  stateOfHealth      Float
+  vehicle            Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("battery_reports")
 }
 
-// ─── 15. EnergyProductionLog Model ────────────────────────────────
 model EnergyProductionLog {
   id                String          @id @default(uuid())
   generatorId       String
-  generator         EnergyGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
   energyProducedKwh Float
   peakOutputKw      Float
   loggedAt          DateTime        @default(now())
+  generator         EnergyGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
 
   @@map("energy_production_logs")
 }
 
-// ─── 16. Payment Model ─────────────────────────────────────────────
 model Payment {
-  id                  String          @id @default(uuid())
-  chargingSessionId   String          @unique
-  chargingSession     ChargingSession @relation(fields: [chargingSessionId], references: [id], onDelete: Cascade)
-  userId              String
-  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount              Float
-  currency            String          @default("USD")
-  paymentMethod       String          @default("credit_card")
-  transactionId       String          @unique
-  status              String          @default("completed") // pending, completed, failed, refunded
-  createdAt           DateTime        @default(now())
+  id                String          @id @default(uuid())
+  userId            String
+  amount            Float
+  currency          String          @default("USD")
+  paymentMethod     String          @default("credit_card")
+  status            String          @default("completed")
+  createdAt         DateTime        @default(now())
+  chargingSessionId String          @unique
+  transactionId     String          @unique
+  chargingSession   ChargingSession @relation(fields: [chargingSessionId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("payments")
 }
 
-// ─── 17. Notification Model ────────────────────────────────────────
 model Notification {
   id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   message   String
-  type      String   @default("info") // info, success, warning, error
+  type      String   @default("info")
   severity  String   @default("low")
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }

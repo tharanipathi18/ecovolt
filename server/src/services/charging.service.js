@@ -171,28 +171,79 @@ export const getChargingSessions = async (operatorId, role, filterStatus) => {
 };
 
 /** Start charging session (Only for approved/confirmed bookings) */
-export const startChargingSession = async (operatorId, data) => {
-  const { chargingPortId, vehicleId, startStateOfCharge } = data;
+export const startChargingSession = async (operatorId, role, data) => {
+  const { bookingId, chargingPortId, vehicleId, startStateOfCharge } = data;
 
-  const port = await prisma.chargingPort.findUnique({ where: { id: chargingPortId } });
+  // 1. Find the booking using bookingId (or target ID passed in data)
+  const targetBookingId = bookingId || data.id || vehicleId;
+  let booking = null;
+
+  if (targetBookingId) {
+    booking = await prisma.booking.findUnique({
+      where: { id: targetBookingId },
+      include: { chargingPort: true },
+    });
+  }
+
+  // Fallback: search for a confirmed booking matching chargingPortId or vehicleId
+  if (!booking) {
+    const whereClause = { status: 'confirmed' };
+    if (chargingPortId) whereClause.chargingPortId = chargingPortId;
+    if (vehicleId) whereClause.vehicleId = vehicleId;
+
+    booking = await prisma.booking.findFirst({
+      where: whereClause,
+      include: { chargingPort: true },
+    });
+  }
+
+  // 2. Validate booking exists and status == 'confirmed'
+  if (!booking) {
+    const error = new Error('Booking not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (booking.status !== 'confirmed') {
+    const error = new Error('Booking is not confirmed.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate charging port exists and belongs to logged-in owner
+  const port = booking.chargingPort || (await prisma.chargingPort.findUnique({ where: { id: booking.chargingPortId } }));
   if (!port) {
-    const error = new Error('Charging port not found');
+    const error = new Error('Charging port not found.');
     error.statusCode = 404;
     throw error;
   }
 
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+  if (role !== 'admin' && port.operatorId !== operatorId) {
+    const error = new Error('Not authorized to start session for this charging port.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 3. Fetch vehicle ONLY using booking.vehicleId
+  const vehicle = await prisma.vehicle.findUnique({
+    where: {
+      id: booking.vehicleId,
+    },
+  });
+
+  // 4. If vehicle does not exist -> Return 404 { success: false, message: "Vehicle not found." }
   if (!vehicle) {
-    const error = new Error('Vehicle not found');
+    const error = new Error('Vehicle not found.');
     error.statusCode = 404;
     throw error;
   }
 
+  // 5. If vehicle exists: Create ChargingSession, Update booking status, Update charging port occupancy
   const session = await prisma.chargingSession.create({
     data: {
-      userId: vehicle.ownerId,
-      chargingPortId,
-      vehicleId,
+      userId: booking.userId,
+      chargingPortId: booking.chargingPortId,
+      vehicleId: booking.vehicleId,
       startStateOfCharge: parseFloat(startStateOfCharge) || 20.0,
       status: 'active',
     },
@@ -202,14 +253,21 @@ export const startChargingSession = async (operatorId, data) => {
     },
   });
 
+  // Update booking status
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: { status: 'completed' },
+  });
+
+  // Update charging port occupancy
   await prisma.chargingPort.update({
-    where: { id: chargingPortId },
+    where: { id: booking.chargingPortId },
     data: { status: 'occupied' },
   });
 
-  // Dispatch Notification
+  // Dispatch Notification to vehicle owner
   await createNotification({
-    userId: vehicle.ownerId,
+    userId: booking.userId,
     title: 'Charging Session Started ⚡',
     message: `Your ${vehicle.make} ${vehicle.model} has started charging at ${port.stationName}.`,
     type: 'info',
