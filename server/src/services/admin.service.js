@@ -213,3 +213,83 @@ export const updateSystemSettings = (data) => {
   systemSettings = { ...systemSettings, ...data };
   return systemSettings;
 };
+/* ==========================================================
+   ENERGY GENERATOR APPROVAL
+========================================================== */
+
+/** Get all pending energy generator requests */
+export const getPendingGenerators = async () => {
+  return prisma.energyGenerator.findMany({
+    where: {
+      status: "PENDING",
+    },
+    include: {
+      operator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+/** Admin Approve or Reject Generator Application */
+export const reviewGeneratorApplication = async (generatorId, decision) => {
+  const generator = await prisma.energyGenerator.findUnique({ where: { id: generatorId } });
+  if (!generator) {
+    const error = new Error('Generator application not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const isApproved = decision === 'APPROVE';
+  const status = isApproved ? 'APPROVED' : 'REJECTED';
+
+  const updatedGenerator = await prisma.energyGenerator.update({
+    where: { id: generatorId },
+    data: {
+      status,
+    },
+    include: {
+      operator: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  // Dispatch Notification to Generator Owner
+  if (isApproved) {
+    await createNotification({
+      userId: generator.operatorId,
+      title: 'Generator Application APPROVED! ⚡',
+      message: `Congratulations! Your energy generator "${generator.name}" has been approved by Admin and is now active on EcoVolt.`,
+      type: 'success',
+      severity: 'medium',
+    });
+  } else {
+    await createNotification({
+      userId: generator.operatorId,
+      title: 'Generator Application Rejected ❌',
+      message: `Your application for energy generator "${generator.name}" was rejected. Please contact support.`,
+      type: 'error',
+      severity: 'medium',
+    });
+  }
+
+  return updatedGenerator;
+};
+
+/** Approve Generator (deprecated, fallback) */
+export const approveGenerator = async (generatorId, adminId) => {
+  return reviewGeneratorApplication(generatorId, 'APPROVE');
+};
+
+/** Reject Generator (deprecated, fallback) */
+export const rejectGenerator = async (generatorId) => {
+  return reviewGeneratorApplication(generatorId, 'REJECT');
+};
+

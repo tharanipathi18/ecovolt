@@ -55,3 +55,22 @@ export const getChargingPorts = asyncHandler(async (req, res) => {
   const ports = await adminService.getAllPorts();
   res.status(200).json({ success: true, count: ports.length, data: { ports } });
 });
+export const getPendingGeneratorApplications = asyncHandler(async (req, res) => {
+  const generators = await adminService.getPendingGenerators();
+  res.status(200).json({
+    success: true,
+    count: generators.length,
+    data: { generators },
+  });
+});
+
+export const reviewGeneratorApplication = asyncHandler(async (req, res) => {
+  const { decision } = req.body;
+  const generator = await adminService.reviewGeneratorApplication(req.params.id, decision);
+  res.status(200).json({
+    success: true,
+    message: `Generator application ${decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'}`,
+    data: { generator },
+  });
+});
+

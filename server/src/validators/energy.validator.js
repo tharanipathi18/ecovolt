@@ -22,20 +22,12 @@ export const validateCreateGenerator = (data) => {
     errors.push('Capacity in kW must be a positive number');
   }
 
-  if (!data.location?.address?.trim()) {
-    errors.push('Location address is required');
+  if (!data.locationAddress?.trim()) {
+    errors.push("Location address is required");
   }
 
-  if (!data.location?.city?.trim()) {
-    errors.push('Location city is required');
-  }
-
-  if (
-    !data.location?.coordinates?.coordinates ||
-    !Array.isArray(data.location.coordinates.coordinates) ||
-    data.location.coordinates.coordinates.length !== 2
-  ) {
-    errors.push('Location coordinates must be an array of [longitude, latitude]');
+  if (!data.locationCity?.trim()) {
+    errors.push("Location city is required");
   }
 
   if (data.gridConnection && !VALID_GRID_CONNECTIONS.includes(data.gridConnection)) {

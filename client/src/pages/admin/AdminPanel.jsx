@@ -47,6 +47,7 @@ export default function AdminPanel() {
 
   // Dynamic API State (Strictly from Supabase DB via Prisma)
   const [pendingApplications, setPendingApplications] = useState([]);
+  const [pendingGenerators, setPendingGenerators] = useState([]);
   const [users, setUsers] = useState([]);
   const [generators, setGenerators] = useState([]);
   const [ports, setPorts] = useState([]);
@@ -91,6 +92,10 @@ export default function AdminPanel() {
       // 2. Fetch Pending Station Applications
       const appRes = await adminService.getPendingStationApplications();
       setPendingApplications(appRes.data?.applications || []);
+
+      // Fetch Pending Generator Applications
+      const genAppRes = await adminService.getPendingGenerators();
+      setPendingGenerators(genAppRes.data?.generators || []);
 
       // 3. Fetch Users
       const uRes = await adminService.getUsers();
@@ -145,6 +150,26 @@ export default function AdminPanel() {
       loadAdminData();
     } catch (err) {
       setNotification({ type: 'error', title: 'Review Failed', message: err.message || 'Could not review application.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ─── Generator Application Decision Handler (APPROVE / REJECT) ─────────────
+  const handleReviewGenerator = async (generatorId, decision) => {
+    setIsSubmitting(true);
+    try {
+      await adminService.reviewGenerator(generatorId, decision);
+      setPendingGenerators((prev) => prev.filter((g) => g.id !== generatorId));
+      const isApprove = decision === 'APPROVE';
+      setNotification({
+        type: isApprove ? 'success' : 'warning',
+        title: `Generator ${isApprove ? 'APPROVED! ⚡' : 'REJECTED ❌'}`,
+        message: `Generator application set to ${decision} in Supabase DB.`,
+      });
+      loadAdminData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Review Failed', message: err.message || 'Could not review generator application.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -219,6 +244,39 @@ export default function AdminPanel() {
       ),
     },
   ];
+
+  const generatorColumns = [
+    { key: 'name', title: 'Generator Name', render: (row) => row.name },
+    { key: 'type', title: 'Type', render: (row) => row.type },
+    { key: 'capacity', title: 'Capacity', render: (row) => `${row.capacityKw} kW` },
+    { key: 'operator', title: 'Operator', render: (row) => row.operator?.name || 'Applicant' },
+    { key: 'status', title: 'Status', render: (row) => <Badge variant="warning" dot>{row.status || 'PENDING REVIEW'}</Badge> },
+    {
+      key: 'actions',
+      title: 'Admin Decision',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => handleReviewGenerator(row.id, 'APPROVE')}
+          >
+            APPROVE
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => handleReviewGenerator(row.id, 'REJECT')}
+          >
+            REJECT
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
 
   const userColumns = [
     { key: 'name', title: 'Full Name', render: (row) => row.name },
@@ -384,6 +442,16 @@ export default function AdminPanel() {
           📋 Station Requests ({pendingApplications.length})
         </button>
         <button
+          onClick={() => setActiveTab('generatorRequests')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'generatorRequests'
+              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+              : 'text-surface-400 hover:text-white'
+          }`}
+        >
+          ⚡ Generator Requests ({pendingGenerators.length})
+        </button>
+        <button
           onClick={() => setActiveTab('ports')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'ports'
@@ -527,6 +595,24 @@ export default function AdminPanel() {
             </div>
           ) : (
             <Table columns={applicationColumns} data={pendingApplications} emptyMessage="No pending station owner applications." />
+          )}
+        </section>
+      )}
+
+      {/* SECTION: Generator Requests */}
+      {activeTab === 'generatorRequests' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Energy Generator Applications</h2>
+            <Badge variant="warning">Admin Governance Review</Badge>
+          </div>
+          {isLoading ? (
+            <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
+              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              <span>Loading generator applications from Supabase...</span>
+            </div>
+          ) : (
+            <Table columns={generatorColumns} data={pendingGenerators} emptyMessage="No pending energy generator applications." />
           )}
         </section>
       )}

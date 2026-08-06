@@ -16,14 +16,47 @@ export const getGenerators = async (operatorId, role) => {
 
 /** Register new generator facility */
 export const createGenerator = async (operatorId, data) => {
-  return prisma.energyGenerator.create({
+
+  const generator = await prisma.energyGenerator.create({
+
     data: {
       ...data,
+
       operatorId,
-      currentOutputKw: data.capacityKw * 0.8,
-      excessEnergyKw: data.capacityKw * 0.4,
-    },
+
+      currentOutputKw: 0,
+
+      excessEnergyKw: 0,
+
+      status: "PENDING"
+    }
+
   });
+
+  // Notify admin
+  const admins = await prisma.user.findMany({
+    where: {
+      role: "admin"
+    }
+  });
+
+  for (const admin of admins) {
+
+    await prisma.notification.create({
+
+      data: {
+        userId: admin.id,
+        title: "New Energy Generator Request",
+        message: `${generator.name} is waiting for approval.`,
+        type: "GENERATOR_REQUEST"
+      }
+
+    });
+
+  }
+
+  return generator;
+
 };
 
 /** Get a single generator by ID (with ownership guard) */
@@ -82,6 +115,25 @@ export const logProduction = async (generatorId, operatorId, data) => {
     error.statusCode = 404;
     throw error;
   }
+
+  if (generator.status === "PENDING") {
+    const error = new Error("Generator is waiting for admin approval.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (generator.status === "REJECTED") {
+    const error = new Error("Generator has been rejected.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (generator.status !== "APPROVED") {
+    const error = new Error("Generator is not approved.");
+    error.statusCode = 403;
+    throw error;
+  }
+
 
   const { energyProducedKwh, peakOutputKw } = data;
   const log = await prisma.energyProductionLog.create({

@@ -239,21 +239,19 @@ export default function EnergyOverview() {
       <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
-          }`}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${activeTab === 'overview'
+            ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+            : 'text-surface-400 hover:text-white'
+            }`}
         >
           ☀️ Energy Facilities ({generators.length})
         </button>
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
-            activeTab === 'transactions'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
-          }`}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${activeTab === 'transactions'
+            ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+            : 'text-surface-400 hover:text-white'
+            }`}
         >
           💰 Settlement Transactions ({transactions.length})
         </button>
@@ -379,6 +377,33 @@ export default function EnergyOverview() {
                 { value: 'microgrid', label: 'Dedicated Microgrid' },
                 { value: 'hybrid', label: 'Hybrid Clean Feed' },
               ]}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Location Address"
+              required
+              placeholder="123 Solar Street"
+              value={newGenData.address}
+              onChange={(e) =>
+                setNewGenData({
+                  ...newGenData,
+                  address: e.target.value,
+                })
+              }
+            />
+
+            <Input
+              label="City"
+              required
+              placeholder="Chennai"
+              value={newGenData.city}
+              onChange={(e) =>
+                setNewGenData({
+                  ...newGenData,
+                  city: e.target.value,
+                })
+              }
             />
           </div>
 
