@@ -20,6 +20,12 @@ const adminService = {
   /** Approve or Reject station application */
   reviewStationApplication: (id, decision) => apiClient.put(`/admin/station-applications/${id}/review`, { decision }),
 
+  /** Get pending energy generator applications awaiting approval */
+  getPendingGenerators: () => apiClient.get('/admin/generator-applications/pending'),
+
+  /** Approve or Reject energy generator application */
+  reviewGenerator: (id, decision) => apiClient.put(`/admin/generator-applications/${id}/review`, { decision }),
+
   /** Get all registered vehicles */
   getVehicles: () => apiClient.get('/admin/vehicles'),
 
