@@ -25,4 +25,15 @@ router.get('/sessions', adminController.getSessions);
 router.get('/generators', adminController.getGenerators);
 router.get('/ports', adminController.getChargingPorts);
 
+/* ==========================================================
+   ENERGY GENERATOR APPROVAL
+========================================================= */
+
+// Get all pending generator requests
+router.get('/generator-applications/pending', adminController.getPendingGeneratorApplications);
+
+// Review generator application (Approve or Reject)
+router.put('/generator-applications/:id/review', adminController.reviewGeneratorApplication);
+
+
 export default router;

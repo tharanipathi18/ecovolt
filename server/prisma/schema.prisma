@@ -77,8 +77,10 @@ model EnergyGenerator {
   excessEnergyKw   Float                 @default(0)
   tariffRatePerKwh Float                 @default(0.15)
   totalRevenue     Float                 @default(0)
-  status           String                @default("active")
-  gridConnection   String                @default("grid")
+  status           String                @default("PENDING")
+approvedBy       String?
+approvedAt       DateTime?
+gridConnection   String                @default("grid")
   locationAddress  String?
   locationCity     String?
   locationState    String?
