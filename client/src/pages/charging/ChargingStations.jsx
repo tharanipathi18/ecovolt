@@ -320,7 +320,7 @@ export default function ChargingStations() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-secondary-950/80 via-surface-800 to-primary-950/80 border border-secondary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-secondary-950 via-surface-800 to-primary-950 border border-secondary-500/30 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-secondary-500/10 border border-secondary-500/30 text-secondary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
             🔌

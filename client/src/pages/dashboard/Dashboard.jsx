@@ -262,7 +262,7 @@ export default function Dashboard() {
       )}
 
       {/* Top Banner & Vehicle Switcher Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950/80 via-surface-800 to-secondary-950/80 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950 via-surface-800 to-secondary-950 border border-primary-500/30 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
             ⚡
@@ -420,8 +420,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, doorsLocked: !vehicleControls.doorsLocked })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.doorsLocked
-                        ? 'bg-surface-800/80 border-surface-700 text-surface-300'
-                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        ? 'bg-surface-800 border-surface-700 text-surface-300'
+                        : 'bg-amber-950 border-amber-500/30 text-amber-400'
                     }`}
                   >
                     <span className="text-3xl block mb-1">{vehicleControls.doorsLocked ? '🔒' : '🔓'}</span>
@@ -433,8 +433,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, chargingActive: !vehicleControls.chargingActive })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.chargingActive
-                        ? 'bg-primary-500/20 border-primary-500/40 text-primary-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-primary-950 border-primary-500/40 text-primary-400'
+                        : 'bg-surface-800 border-surface-700 text-surface-300'
                     }`}
                   >
                     <span className="text-3xl block mb-1">⚡</span>
@@ -446,8 +446,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, climateControl: !vehicleControls.climateControl })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.climateControl
-                        ? 'bg-secondary-500/20 border-secondary-500/40 text-secondary-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-secondary-950 border-secondary-500/40 text-secondary-400'
+                        : 'bg-surface-800 border-surface-700 text-surface-300'
                     }`}
                   >
                     <span className="text-3xl block mb-1">❄️</span>
@@ -459,8 +459,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, flashersOn: !vehicleControls.flashersOn })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.flashersOn
-                        ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-red-950 border-red-500/40 text-red-400'
+                        : 'bg-surface-800 border-surface-700 text-surface-300'
                     }`}
                   >
                     <span className="text-3xl block mb-1">🚨</span>
@@ -592,7 +592,7 @@ export default function Dashboard() {
       {/* TAB 3: Charging History & Sustainability Impact */}
       {activeTab === 'history' && (
         <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-surface-800 to-primary-950/60 border border-emerald-500/30 flex items-center justify-between">
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950 via-surface-800 to-primary-950 border border-emerald-500/30 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Your Environmental Impact 🌿</h3>
               <p className="text-xs text-surface-400 mt-0.5">
@@ -737,7 +737,7 @@ export default function Dashboard() {
             ]}
           />
 
-          <div className="p-4 rounded-xl bg-surface-800/80 border border-surface-700 text-xs space-y-1">
+          <div className="p-4 rounded-xl bg-surface-800 border border-surface-700 text-xs space-y-1">
             <div className="flex justify-between">
               <span className="text-surface-400">Selected Station:</span>
               <span className="text-white font-medium">{selectedStation?.stationName || selectedStation?.name}</span>

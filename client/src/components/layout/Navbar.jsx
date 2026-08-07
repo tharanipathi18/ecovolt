@@ -50,7 +50,7 @@ export default function Navbar({ onToggleSidebar }) {
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-surface-900/80 backdrop-blur-xl border-b border-surface-800/80 px-4 md:px-6 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 h-16 bg-surface-900 border-b border-surface-800 px-4 md:px-6 flex items-center justify-between gap-4">
 
       {/* ── Left: Mobile Menu Toggle & Breadcrumb ───────────────────── */}
       <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ export default function Navbar({ onToggleSidebar }) {
           <input
             type="text"
             placeholder="Search stations, fleets, or energy generators... (Ctrl + K)"
-            className="w-full pl-10 pr-4 py-2 bg-surface-800/60 border border-surface-700/60 rounded-xl text-xs text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-xl text-xs text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all"
           />
         </div>
       </div>
@@ -140,8 +140,8 @@ export default function Navbar({ onToggleSidebar }) {
                     key={n.id}
                     className={`p-2.5 rounded-xl border text-xs transition-colors ${
                       n.unread
-                        ? 'bg-primary-500/5 border-primary-500/20 text-surface-200'
-                        : 'bg-surface-800/40 border-surface-700/40 text-surface-400'
+                        ? 'bg-surface-900 border-primary-500/20 text-surface-200'
+                        : 'bg-surface-900 border-surface-700/40 text-surface-400'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">

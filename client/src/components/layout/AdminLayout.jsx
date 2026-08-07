@@ -38,7 +38,7 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-surface-950 flex flex-col text-surface-100 font-sans antialiased selection:bg-primary-500/30">
       {/* ── Top Header ────────────────────────────────────────────────── */}
-      <header className="h-16 bg-surface-900/90 border-b border-surface-800/80 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
+      <header className="h-16 bg-surface-900 border-b border-surface-800 px-6 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center font-bold text-lg shadow-md">
             🛡️
@@ -70,7 +70,7 @@ export default function AdminLayout() {
       {/* ── Main Layout Body ──────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="w-64 bg-surface-900/60 border-r border-surface-800/80 p-4 hidden md:flex flex-col justify-between shrink-0">
+        <aside className="w-64 bg-surface-900 border-r border-surface-800 p-4 hidden md:flex flex-col justify-between shrink-0">
           <div className="space-y-1">
             <p className="px-3 py-2 text-[10px] font-bold text-surface-500 uppercase tracking-wider">
               Management Portal
@@ -94,7 +94,7 @@ export default function AdminLayout() {
             })}
           </div>
 
-          <div className="p-3 rounded-2xl bg-surface-800/40 border border-surface-800 text-[11px] text-surface-400 space-y-1">
+          <div className="p-3 rounded-2xl bg-surface-800 border border-surface-700 text-[11px] text-surface-400 space-y-1">
             <p className="font-bold text-white">Security Policy</p>
             <p className="text-[10px] leading-relaxed">
               This URL `/admin` is restricted. Unauthenticated or non-admin attempts are blocked.

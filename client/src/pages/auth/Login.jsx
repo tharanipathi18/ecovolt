@@ -131,7 +131,7 @@ export default function Login() {
                   placeholder="you@example.com"
                   aria-invalid={!!errors.email}
                   aria-describedby={errors.email ? 'email-error' : undefined}
-                  className={`w-full pl-11 pr-4 py-3 bg-surface-800/50 border rounded-xl text-white
+                  className={`w-full pl-11 pr-4 py-3 bg-surface-800 border rounded-xl text-white
                     placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50
                     focus:border-primary-500 transition-all ${
                     errors.email ? 'border-red-500/50' : 'border-surface-700'
@@ -179,7 +179,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   aria-invalid={!!errors.password}
                   aria-describedby={errors.password ? 'password-error' : undefined}
-                  className={`w-full pl-11 pr-12 py-3 bg-surface-800/50 border rounded-xl text-white
+                  className={`w-full pl-11 pr-12 py-3 bg-surface-800 border rounded-xl text-white
                     placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50
                     focus:border-primary-500 transition-all ${
                     errors.password ? 'border-red-500/50' : 'border-surface-700'
@@ -281,7 +281,7 @@ export default function Login() {
                 console.error('Google login failed:', err);
               }
             }}
-            className="w-full py-3 px-4 rounded-xl bg-surface-800/80 hover:bg-surface-700/80 border border-surface-700 text-white font-medium text-sm flex items-center justify-center gap-3 transition-all shadow-md"
+            className="w-full py-3 px-4 rounded-xl bg-surface-800 hover:bg-surface-700 border border-surface-700 text-white font-medium text-sm flex items-center justify-center gap-3 transition-all shadow-md"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

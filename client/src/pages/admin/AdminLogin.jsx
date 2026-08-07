@@ -82,7 +82,7 @@ export default function AdminLogin() {
                   pattern: { value: /^\S+@\S+$/i, message: 'Invalid email format' },
                 })}
                 placeholder="admin@ecovolt.com"
-                className="w-full px-4 py-3 rounded-xl bg-surface-900/80 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-surface-900 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all"
               />
               {errors.email && (
                 <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
@@ -98,7 +98,7 @@ export default function AdminLogin() {
                   type={showPassword ? 'text' : 'password'}
                   {...register('password', { required: 'Password is required' })}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 rounded-xl bg-surface-900/80 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all pr-10"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-900 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all pr-10"
                 />
                 <button
                   type="button"

@@ -95,7 +95,7 @@ export default function ForgotPassword() {
                       type="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className={`w-full pl-11 pr-4 py-3 bg-surface-800/50 border rounded-xl text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all ${
+                      className={`w-full pl-11 pr-4 py-3 bg-surface-800 border rounded-xl text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all ${
                         errors.email ? 'border-red-500/50' : 'border-surface-700'
                       }`}
                       {...register('email', {

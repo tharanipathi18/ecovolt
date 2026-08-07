@@ -19,10 +19,10 @@ export default function Card({
   const baseClasses = 'rounded-2xl transition-all duration-300 relative overflow-hidden';
 
   const variantClasses = {
-    glass: 'bg-white/5 backdrop-blur-lg border border-white/10 text-surface-100',
-    solid: 'bg-surface-800/80 border border-surface-700/80 text-surface-100',
-    outline: 'bg-transparent border border-surface-700 text-surface-100',
-    glow: 'bg-surface-900/90 border border-primary-500/30 glow-primary text-surface-100',
+    glass: 'bg-surface-800 border border-surface-700 text-surface-100',
+    solid: 'bg-surface-800 border border-surface-700 text-surface-100',
+    outline: 'bg-surface-900 border border-surface-700 text-surface-100',
+    glow: 'bg-surface-900 border border-primary-500/30 glow-primary text-surface-100',
   };
 
   const paddingClasses = {

@@ -19,7 +19,7 @@ export default function PublicLayout() {
   return (
     <div className="min-h-screen bg-surface-900 text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-surface-950">
       {/* Top Header Navigation */}
-      <header className="sticky top-0 z-50 bg-surface-900/80 backdrop-blur-xl border-b border-surface-800">
+      <header className="sticky top-0 z-50 bg-surface-900 border-b border-surface-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
@@ -38,7 +38,7 @@ export default function PublicLayout() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 bg-surface-800/40 p-1.5 rounded-full border border-surface-700/50">
+          <nav className="hidden md:flex items-center gap-1 bg-surface-800 p-1.5 rounded-full border border-surface-700">
             {navLinks.map((link) => (
               <NavLink
                 key={link.path}
@@ -102,7 +102,7 @@ export default function PublicLayout() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-b border-surface-800 bg-surface-900/95 backdrop-blur-xl px-4 py-4 space-y-2 animate-slide-down">
+          <div className="md:hidden border-b border-surface-800 bg-surface-900 px-4 py-4 space-y-2 animate-slide-down">
             {navLinks.map((link) => (
               <NavLink
                 key={link.path}

@@ -63,7 +63,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden animate-fade-in"
+          className="fixed inset-0 z-40 bg-black/60 md:hidden animate-fade-in"
         />
       )}
 
@@ -115,7 +115,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 ${
                     isActive
-                      ? 'bg-gradient-to-r from-primary-600/20 to-primary-500/10 border border-primary-500/30 text-primary-400 font-semibold shadow-sm'
+                      ? 'bg-primary-950 border border-primary-500/30 text-primary-400 font-semibold shadow-sm'
                       : 'text-surface-400 hover:text-white hover:bg-surface-800/60'
                   }`
                 }
@@ -129,7 +129,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* Bottom Card: Grid Status Widget */}
         <div className="p-4 border-t border-surface-800">
-          <div className="glass-card p-4 bg-surface-800/40 border border-surface-700/50 rounded-xl">
+          <div className="p-4 bg-surface-800 border border-surface-700 rounded-xl">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-white">Local Microgrid</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(0,230,92,0.8)]" />

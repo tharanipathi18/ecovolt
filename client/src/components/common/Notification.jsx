@@ -30,14 +30,14 @@ export default function Notification({
 
   const styleMap = {
     success: {
-      border: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+      border: 'border-emerald-500/30 bg-surface-800 text-emerald-300',
       iconColor: 'text-emerald-400',
       icon: (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
       ),
     },
     warning: {
-      border: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+      border: 'border-amber-500/30 bg-surface-800 text-amber-300',
       iconColor: 'text-amber-400',
       icon: (
         <path
@@ -49,14 +49,14 @@ export default function Notification({
       ),
     },
     error: {
-      border: 'border-red-500/30 bg-red-500/10 text-red-300',
+      border: 'border-red-500/30 bg-surface-800 text-red-300',
       iconColor: 'text-red-400',
       icon: (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
       ),
     },
     info: {
-      border: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
+      border: 'border-blue-500/30 bg-surface-800 text-blue-300',
       iconColor: 'text-blue-400',
       icon: (
         <path
@@ -73,7 +73,7 @@ export default function Notification({
 
   return (
     <div
-      className={`p-4 rounded-xl border backdrop-blur-md flex items-start gap-3 transition-all animate-fade-in ${currentStyle.border} ${className}`}
+      className={`p-4 rounded-xl border flex items-start gap-3 transition-all animate-fade-in ${currentStyle.border} ${className}`}
     >
       <svg className={`w-5 h-5 mt-0.5 shrink-0 ${currentStyle.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         {currentStyle.icon}

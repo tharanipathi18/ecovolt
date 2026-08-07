@@ -64,11 +64,11 @@ export default function Home() {
 
         {/* System actors pills */}
         <div className="pt-12 grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-3xl mx-auto text-xs text-surface-400">
-          <div className="p-3 rounded-xl bg-surface-800/40 border border-surface-700/50">☀️ Generators</div>
-          <div className="p-3 rounded-xl bg-surface-800/40 border border-surface-700/50">🔌 Charging Ports</div>
-          <div className="p-3 rounded-xl bg-surface-800/40 border border-surface-700/50">⚡ EV Drivers</div>
-          <div className="p-3 rounded-xl bg-surface-800/40 border border-surface-700/50">🚛 Fleet Managers</div>
-          <div className="p-3 rounded-xl bg-surface-800/40 border border-surface-700/50 col-span-2 sm:col-span-1">🛡️ Admin Controls</div>
+          <div className="p-3 rounded-xl bg-surface-800 border border-surface-700">☀️ Generators</div>
+          <div className="p-3 rounded-xl bg-surface-800 border border-surface-700">🔌 Charging Ports</div>
+          <div className="p-3 rounded-xl bg-surface-800 border border-surface-700">⚡ EV Drivers</div>
+          <div className="p-3 rounded-xl bg-surface-800 border border-surface-700">🚛 Fleet Managers</div>
+          <div className="p-3 rounded-xl bg-surface-800 border border-surface-700 col-span-2 sm:col-span-1">🛡️ Admin Controls</div>
         </div>
       </section>
 

@@ -287,7 +287,7 @@ export default function AdminPanel() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-surface-900 via-primary-950/90 to-surface-900 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-surface-900 via-primary-950 to-surface-900 border border-primary-500/30 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
             🛡️
@@ -620,7 +620,7 @@ export default function AdminPanel() {
         <Card variant="glass" padding="normal" className="max-w-xl">
           <CardHeader title="Platform System Settings" subtitle="Configure governance rules" />
           <div className="space-y-4 py-2 text-xs">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800/60 border border-surface-700">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800 border border-surface-700">
               <div>
                 <p className="font-bold text-white">System Maintenance Mode</p>
                 <p className="text-surface-400 text-[11px]">Temporarily restrict new bookings</p>
@@ -655,7 +655,7 @@ export default function AdminPanel() {
             ]}
           />
 
-          <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800/60 border border-surface-700">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-surface-800 border border-surface-700">
             <div>
               <p className="text-xs font-bold text-white">Account Status</p>
               <p className="text-[11px] text-surface-400">Suspended accounts cannot log in</p>

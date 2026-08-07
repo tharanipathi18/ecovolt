@@ -52,14 +52,14 @@ export default function Modal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-black/70 transition-opacity animate-fade-in"
         onClick={closeOnBackdrop ? onClose : undefined}
       />
 
       {/* Dialog container */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative w-full ${sizeClasses[size]} glass-card border border-white/10 p-6 md:p-8 shadow-2xl animate-slide-up ${className}`}
+          className={`relative w-full ${sizeClasses[size]} glass-card border border-surface-700 p-6 md:p-8 shadow-2xl animate-slide-up ${className}`}
         >
           {/* Header */}
           <div className="flex items-start justify-between mb-4 pb-4 border-b border-surface-700/50">

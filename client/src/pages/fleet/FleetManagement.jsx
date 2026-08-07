@@ -81,7 +81,7 @@ const PRIORITY_OPTIONS = [
 
 function EmptyState({ icon, title, subtitle, action }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-2xl border border-surface-700/50 bg-surface-800/30">
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-2xl border border-surface-700 bg-surface-800">
       <div className="text-5xl mb-4">{icon}</div>
       <h3 className="text-lg font-bold text-white mb-1">{title}</h3>
       <p className="text-surface-400 text-sm mb-6 max-w-sm">{subtitle}</p>
@@ -487,7 +487,7 @@ export default function FleetManagement() {
       )}
 
       {/* ── Top Banner ──────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950/80 via-surface-800 to-secondary-950/80 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950 via-surface-800 to-secondary-950 border border-primary-500/30 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
             🚗
