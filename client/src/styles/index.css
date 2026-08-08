@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================
-   EcoVolt — Global Styles
+   EcoVolt — Clean Natural Theme Global Styles
    ============================================ */
 
 @layer base {
@@ -23,40 +23,40 @@
 
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #0f172a;
-    color: #e2e8f0;
+    background-color: #f8fafc;
+    color: #0f172a;
     min-height: 100vh;
   }
 
-  /* Custom scrollbar */
+  /* Clean subtle scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #1e293b;
+    background: #f1f5f9;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #475569;
+    background: #cbd5e1;
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
+    background: #94a3b8;
   }
 }
 
 @layer components {
-  /* Glass morphism card */
+  /* Solid clean card surface */
   .glass-card {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
+    @apply bg-white border border-slate-200/80 rounded-2xl shadow-sm transition-shadow duration-200;
   }
 
-  /* Gradient text */
+  /* Natural Forest Gradient text */
   .gradient-text {
-    @apply bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-emerald-800 to-green-700 bg-clip-text text-transparent;
   }
 
   /* Status indicator dot */
@@ -65,25 +65,26 @@
   }
 
   .status-dot--online {
-    @apply bg-primary-500 shadow-[0_0_6px_rgba(0,230,92,0.6)];
+    @apply bg-emerald-600;
   }
 
   .status-dot--offline {
-    @apply bg-surface-500;
+    @apply bg-slate-400;
   }
 
   .status-dot--warning {
-    @apply bg-accent-500 shadow-[0_0_6px_rgba(245,158,11,0.6)];
+    @apply bg-amber-500;
   }
 }
 
 @layer utilities {
-  /* Glow effect for interactive elements */
+  /* Clean subtle elevation hover for interactive cards */
   .glow-primary {
-    box-shadow: 0 0 15px rgba(0, 230, 92, 0.3);
+    @apply shadow-md border-emerald-600/30;
   }
 
   .glow-secondary {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    @apply shadow-md border-slate-300;
   }
 }
+

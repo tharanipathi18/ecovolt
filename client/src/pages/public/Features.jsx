@@ -8,7 +8,7 @@ export default function Features() {
     {
       actor: 'Renewable Generators',
       icon: '☀️',
-      color: 'border-amber-500/30 bg-amber-500/5',
+      color: 'border-amber-200 bg-amber-50/50',
       items: [
         'Real-time energy generation telemetry integration (kW/kWh output)',
         'Solar, wind, hydro, and biomass source classification',
@@ -19,7 +19,7 @@ export default function Features() {
     {
       actor: 'EV Charging Ports',
       icon: '🔌',
-      color: 'border-primary-500/30 bg-primary-500/5',
+      color: 'border-emerald-200 bg-emerald-50/50',
       items: [
         'Multi-connector port status monitoring (CCS, Type 2, CHAdeMO, Tesla)',
         'Dynamic rate per kWh configuration and currency options',
@@ -30,7 +30,7 @@ export default function Features() {
     {
       actor: 'EV Users',
       icon: '⚡',
-      color: 'border-secondary-500/30 bg-secondary-500/5',
+      color: 'border-sky-200 bg-sky-50/50',
       items: [
         'Personal charging history and clean energy percentage tracking',
         'Nearby renewable charging port discovery',
@@ -41,7 +41,7 @@ export default function Features() {
     {
       actor: 'Fleet Managers',
       icon: '🚛',
-      color: 'border-purple-500/30 bg-purple-500/5',
+      color: 'border-emerald-300 bg-emerald-50/30',
       items: [
         'Commercial vehicle fleet registration and battery capacity tracking',
         'AI-optimized charging schedule recommendations',
@@ -54,25 +54,25 @@ export default function Features() {
   return (
     <div className="space-y-16 py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-extrabold text-white tracking-tight">
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
           Platform <span className="gradient-text">Capabilities</span>
         </h1>
-        <p className="text-surface-300 text-lg max-w-2xl mx-auto">
+        <p className="text-slate-600 text-lg max-w-2xl mx-auto">
           Tailored tools built specifically for every participant in the clean energy mobility ecosystem.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {featureList.map((f, i) => (
-          <div key={i} className={`p-8 rounded-2xl glass-card border ${f.color} space-y-4`}>
+          <div key={i} className={`p-8 rounded-2xl border ${f.color} shadow-sm space-y-4`}>
             <div className="flex items-center gap-3">
               <span className="text-3xl">{f.icon}</span>
-              <h2 className="text-xl font-bold text-white">{f.actor}</h2>
+              <h2 className="text-xl font-bold text-slate-900">{f.actor}</h2>
             </div>
             <ul className="space-y-3 pt-2">
               {f.items.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-xs text-surface-300">
-                  <svg className="w-4 h-4 text-primary-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <li key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                  <svg className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span>{item}</span>
@@ -86,7 +86,7 @@ export default function Features() {
       <div className="text-center pt-4">
         <Link
           to="/register"
-          className="px-8 py-3.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-surface-950 font-bold text-sm shadow-lg shadow-primary-500/20"
+          className="px-8 py-3.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-sm shadow-sm"
         >
           Start Using EcoVolt
         </Link>
@@ -94,3 +94,4 @@ export default function Features() {
     </div>
   );
 }
+

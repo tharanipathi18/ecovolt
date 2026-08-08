@@ -22,8 +22,11 @@ const config = Object.freeze({
   jwtExpire: process.env.JWT_EXPIRE || '7d',
   jwtCookieExpire: parseInt(process.env.JWT_COOKIE_EXPIRE, 10) || 7,
 
-  // CORS
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // CORS — supports comma-separated origins, e.g.
+  // CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+  corsOrigin: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:5173', 'http://localhost:5174'],
 
   // Rate Limiting
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,

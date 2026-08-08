@@ -36,8 +36,15 @@ const generateToken = (userId, role) => {
  * One Google account = One EcoVolt account.
  */
 export const googleOAuthLogin = async ({ email, name, avatar, role }) => {
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    const error = new Error('Google authentication failed: Invalid or unverified email identity.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const normalizedEmail = email.toLowerCase().trim();
-  const assignedRole = role || 'ev_user';
+  // Security constraint: OAuth sign-ups can assign requested roles EXCEPT admin
+  const assignedRole = role && role !== 'admin' ? role : 'ev_user';
 
   let user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
@@ -52,7 +59,7 @@ export const googleOAuthLogin = async ({ email, name, avatar, role }) => {
 
     user = await prisma.user.create({
       data: {
-        name: name ? name.trim() : 'Google User',
+        name: name ? name.trim() : normalizedEmail.split('@')[0],
         email: normalizedEmail,
         password: hashedPassword,
         role: assignedRole,
@@ -63,7 +70,7 @@ export const googleOAuthLogin = async ({ email, name, avatar, role }) => {
       select: userPublicFields,
     });
   } else {
-    // Update last login timestamp and avatar
+    // Update last login timestamp and avatar if available
     user = await prisma.user.update({
       where: { id: user.id },
       data: {

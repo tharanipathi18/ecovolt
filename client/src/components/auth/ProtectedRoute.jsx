@@ -31,33 +31,19 @@ export default function ProtectedRoute({ children, roles }) {
 
   // Role check — if roles are specified and user's role isn't included
   if (roles && roles.length > 0 && !roles.includes(user?.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-950 p-4">
-        <div className="glass-card p-10 text-center max-w-md rounded-3xl border border-red-500/30 shadow-2xl space-y-4">
-          <div className="w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center text-4xl mx-auto shadow-lg">
-            🚫
-          </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">403 Forbidden</h1>
-          <p className="text-surface-400 text-sm">
-            Access Denied. You do not have Administrator privileges to access the EcoVolt Governance Portal.
-          </p>
-          <div className="pt-2 flex flex-col gap-3">
-            <Link
-              to="/dashboard"
-              className="w-full py-3 px-4 bg-surface-800 hover:bg-surface-700 text-white rounded-xl font-medium text-sm transition-colors border border-surface-700"
-            >
-              Return to User Dashboard
-            </Link>
-            <Link
-              to="/admin/login"
-              className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-medium text-sm transition-colors shadow-lg shadow-primary-500/20"
-            >
-              Sign In as Administrator
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    // If non-admin attempts to access an admin route, redirect to standard dashboard
+    if (isAdminRoute) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // Redirect to user's designated role home page
+    const roleHomeMap = {
+      admin: '/admin',
+      generator: '/energy',
+      ev_port: '/charging',
+      ev_user: '/dashboard',
+      fleet_manager: '/fleet',
+    };
+    return <Navigate to={roleHomeMap[user?.role] || '/dashboard'} replace />;
   }
 
   return children;

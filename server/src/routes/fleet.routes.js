@@ -5,7 +5,8 @@ import {
   validateRegisterFleetVehicle,
   validateCreateDriver,
   validateAssignDriver,
-  validateCreateMaintenance,
+  validateCreateComplaint,
+  validateScheduleMaintenance,
 } from '../validators/fleet.validator.js';
 import * as fleetController from '../controllers/fleet.controller.js';
 
@@ -13,6 +14,10 @@ const router = Router();
 
 router.use(protect);
 
+// ─── Consolidated Dashboard ────────────────────────────────────────────────
+router.get('/dashboard', authorize('fleet_manager', 'admin'), fleetController.getFleetDashboard);
+
+// ─── Fleet Vehicles ────────────────────────────────────────────────────────
 router.get('/vehicles', authorize('fleet_manager', 'admin'), fleetController.getFleetVehicles);
 router.post(
   '/vehicles',
@@ -20,7 +25,18 @@ router.post(
   validate(validateRegisterFleetVehicle),
   fleetController.registerFleetVehicle,
 );
+router.patch(
+  '/vehicles/:id/status',
+  authorize('fleet_manager', 'admin'),
+  fleetController.updateFleetVehicleStatus,
+);
+router.put(
+  '/vehicles/:id/schedule',
+  authorize('fleet_manager', 'admin'),
+  fleetController.updateChargingSchedule,
+);
 
+// ─── Drivers ───────────────────────────────────────────────────────────────
 router.get('/drivers', authorize('fleet_manager', 'admin'), fleetController.getDrivers);
 router.post(
   '/drivers',
@@ -28,7 +44,6 @@ router.post(
   validate(validateCreateDriver),
   fleetController.createDriver,
 );
-
 router.post(
   '/assign-driver',
   authorize('fleet_manager', 'admin'),
@@ -36,29 +51,35 @@ router.post(
   fleetController.assignDriver,
 );
 
-router.put(
-  '/schedule/:id',
-  authorize('fleet_manager', 'admin'),
-  fleetController.updateChargingSchedule,
+// ─── Complaints ───────────────────────────────────────────────────────────
+// Drivers and fleet managers can raise/view complaints
+router.get('/complaints', authorize('fleet_manager', 'driver', 'admin'), fleetController.getComplaints);
+router.post(
+  '/complaints',
+  authorize('fleet_manager', 'driver', 'admin'),
+  validate(validateCreateComplaint),
+  fleetController.createComplaint,
 );
+router.put('/complaints/:id', authorize('fleet_manager', 'admin'), fleetController.updateComplaint);
 
+// ─── Maintenance Schedules ─────────────────────────────────────────────────
+router.get('/maintenance', authorize('fleet_manager', 'admin'), fleetController.getMaintenanceSchedules);
 router.post(
   '/maintenance',
   authorize('fleet_manager', 'admin'),
-  validate(validateCreateMaintenance),
-  fleetController.createMaintenanceReport,
+  validate(validateScheduleMaintenance),
+  fleetController.scheduleMaintenance,
 );
+router.put('/maintenance/:id', authorize('fleet_manager', 'admin'), fleetController.updateMaintenanceStatus);
 
-router.get(
-  '/maintenance',
-  authorize('fleet_manager', 'admin'),
-  fleetController.getMaintenanceReports,
-);
+// ─── Analytics ────────────────────────────────────────────────────────────
+router.get('/analytics', authorize('fleet_manager', 'admin'), fleetController.getFleetAnalytics);
 
-router.get(
-  '/analytics',
-  authorize('fleet_manager', 'admin'),
-  fleetController.getFleetAnalytics,
-);
+// ─── Fleet Charging ────────────────────────────────────────────────────────
+router.get('/charging/nearby-ports', authorize('fleet_manager', 'admin'), fleetController.getNearbyPorts);
+router.post('/charging/bookings', authorize('fleet_manager', 'admin'), fleetController.createFleetBooking);
+router.get('/charging/bookings', authorize('fleet_manager', 'admin'), fleetController.getFleetBookings);
+router.get('/charging/history', authorize('fleet_manager', 'admin'), fleetController.getFleetChargingHistory);
 
 export default router;
+

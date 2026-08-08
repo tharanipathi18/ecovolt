@@ -4,12 +4,12 @@ import { forwardRef } from 'react';
  * Reusable Button component.
  *
  * Variants:
- * - primary: Solid electric green gradient
- * - secondary: Solid tech blue
- * - outline: Border with hover background
- * - ghost: Transparent with hover background
- * - danger: Red for destructive actions
- * - success: Green badge/button
+ * - primary: Deep forest green solid button
+ * - secondary: White / light surface button with subtle border
+ * - outline: Forest green border with light tint hover
+ * - ghost: Transparent with slate hover
+ * - danger: Muted red for destructive actions
+ * - success: Natural emerald green button
  *
  * Sizes: sm | md | lg
  */
@@ -31,7 +31,7 @@ const Button = forwardRef(function Button(
   ref,
 ) {
   const baseClasses =
-    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-50 disabled:cursor-not-allowed select-none';
+    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const sizeClasses = {
     sm: 'px-3 py-1.5 text-xs gap-1.5',
@@ -41,17 +41,17 @@ const Button = forwardRef(function Button(
 
   const variantClasses = {
     primary:
-      'bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold shadow-lg shadow-primary-500/25 hover:shadow-primary-500/35 focus:ring-primary-500 active:scale-[0.98]',
+      'bg-emerald-800 hover:bg-emerald-900 text-white font-semibold shadow-sm hover:shadow focus:ring-emerald-700 active:scale-[0.99]',
     secondary:
-      'bg-surface-800 hover:bg-surface-700 text-white border border-surface-700 hover:border-surface-600 focus:ring-secondary-500 active:scale-[0.98]',
+      'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 focus:ring-slate-300 active:scale-[0.99] shadow-2xs',
     outline:
-      'border border-primary-500/50 text-primary-400 hover:bg-primary-500/10 hover:border-primary-500 focus:ring-primary-500 active:scale-[0.98]',
+      'border border-emerald-700/60 text-emerald-800 hover:bg-emerald-50 focus:ring-emerald-700 active:scale-[0.99]',
     ghost:
-      'text-surface-300 hover:text-white hover:bg-surface-800/60 focus:ring-surface-500',
+      'text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:ring-slate-300',
     danger:
-      'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold shadow-lg shadow-red-500/20 focus:ring-red-500 active:scale-[0.98]',
+      'bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm focus:ring-red-500 active:scale-[0.99]',
     success:
-      'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 focus:ring-emerald-500',
+      'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300/60 focus:ring-emerald-700',
   };
 
   const widthClass = fullWidth ? 'w-full' : '';
@@ -101,3 +101,4 @@ const Button = forwardRef(function Button(
 });
 
 export default Button;
+

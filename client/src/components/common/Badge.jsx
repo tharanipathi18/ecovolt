@@ -2,12 +2,12 @@
  * Reusable Badge component for statuses, tags, roles, and highlights.
  *
  * Variants:
- * - success: Green pill (online, active, completed)
- * - warning: Amber/Yellow pill (pending, maintenance)
- * - danger: Red pill (offline, error, failed)
- * - info: Blue pill (processing, active session)
- * - neutral: Gray pill
- * - primary: Electric green outline/fill
+ * - success: Natural emerald pill (online, active, completed)
+ * - warning: Warm amber pill (pending, maintenance)
+ * - danger: Soft rose pill (offline, error, failed)
+ * - info: Sky blue pill (processing, active session)
+ * - neutral: Muted slate pill
+ * - primary: Forest green pill
  */
 export default function Badge({
   children,
@@ -26,21 +26,21 @@ export default function Badge({
   };
 
   const variantClasses = {
-    success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-    warning: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
-    danger: 'bg-red-500/10 text-red-400 border border-red-500/20',
-    info: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-    neutral: 'bg-surface-800 text-surface-300 border border-surface-700',
-    primary: 'bg-primary-500/10 text-primary-400 border border-primary-500/30',
+    success: 'bg-emerald-50 text-emerald-800 border border-emerald-200/80',
+    warning: 'bg-amber-50 text-amber-800 border border-amber-200/80',
+    danger: 'bg-rose-50 text-rose-800 border border-rose-200/80',
+    info: 'bg-sky-50 text-sky-800 border border-sky-200/80',
+    neutral: 'bg-slate-100 text-slate-700 border border-slate-200',
+    primary: 'bg-emerald-50 text-emerald-900 border border-emerald-300',
   };
 
   const dotColorClasses = {
-    success: 'bg-emerald-400',
-    warning: 'bg-amber-400',
-    danger: 'bg-red-400',
-    info: 'bg-blue-400',
-    neutral: 'bg-surface-400',
-    primary: 'bg-primary-400',
+    success: 'bg-emerald-600',
+    warning: 'bg-amber-500',
+    danger: 'bg-rose-500',
+    info: 'bg-sky-600',
+    neutral: 'bg-slate-400',
+    primary: 'bg-emerald-700',
   };
 
   return (
@@ -59,3 +59,4 @@ export default function Badge({
     </span>
   );
 }
+

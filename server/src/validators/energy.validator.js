@@ -22,20 +22,14 @@ export const validateCreateGenerator = (data) => {
     errors.push('Capacity in kW must be a positive number');
   }
 
-  if (!data.location?.address?.trim()) {
+  const address = data.locationAddress?.trim() || data.location?.address?.trim();
+  if (!address) {
     errors.push('Location address is required');
   }
 
-  if (!data.location?.city?.trim()) {
+  const city = data.locationCity?.trim() || data.location?.city?.trim();
+  if (!city) {
     errors.push('Location city is required');
-  }
-
-  if (
-    !data.location?.coordinates?.coordinates ||
-    !Array.isArray(data.location.coordinates.coordinates) ||
-    data.location.coordinates.coordinates.length !== 2
-  ) {
-    errors.push('Location coordinates must be an array of [longitude, latitude]');
   }
 
   if (data.gridConnection && !VALID_GRID_CONNECTIONS.includes(data.gridConnection)) {
@@ -61,16 +55,13 @@ export const validateUploadEnergy = (data) => {
     errors.push('Generator ID is required');
   }
 
-  if (data.energyGeneratedKwh === undefined || typeof data.energyGeneratedKwh !== 'number' || data.energyGeneratedKwh <= 0) {
+  const kwh = data.energyProducedKwh ?? data.energyGeneratedKwh;
+  if (kwh === undefined || typeof kwh !== 'number' || kwh <= 0) {
     errors.push('Energy generated in kWh must be a positive number');
   }
 
   if (data.peakOutputKw === undefined || typeof data.peakOutputKw !== 'number' || data.peakOutputKw < 0) {
     errors.push('Peak output in kW must be a non-negative number');
-  }
-
-  if (data.excessEnergyKwh !== undefined && (typeof data.excessEnergyKwh !== 'number' || data.excessEnergyKwh < 0)) {
-    errors.push('Excess energy in kWh must be a non-negative number');
   }
 
   return { isValid: errors.length === 0, errors };
@@ -94,6 +85,62 @@ export const validateUpdateGenerator = (data) => {
 
   if (data.capacityKw !== undefined && (typeof data.capacityKw !== 'number' || data.capacityKw <= 0)) {
     errors.push('Capacity in kW must be a positive number');
+  }
+
+  return { isValid: errors.length === 0, errors };
+};
+
+/**
+ * Validate Energy Offer creation.
+ */
+export const validateCreateOffer = (data) => {
+  const errors = [];
+
+  if (!data.generatorId) {
+    errors.push('Energy facility generator ID is required');
+  }
+
+  if (data.energyAmountKwh === undefined || typeof data.energyAmountKwh !== 'number' || data.energyAmountKwh <= 0) {
+    errors.push('Energy amount in kWh must be a positive number');
+  }
+
+  if (data.pricePerKwh === undefined || typeof data.pricePerKwh !== 'number' || data.pricePerKwh <= 0) {
+    errors.push('Price per kWh must be a positive number');
+  }
+
+  return { isValid: errors.length === 0, errors };
+};
+
+/**
+ * Validate Energy Purchase Request creation.
+ */
+export const validateCreatePurchaseRequest = (data) => {
+  const errors = [];
+
+  if (!data.offerId) {
+    errors.push('Energy offer ID is required');
+  }
+
+  if (!data.chargingPortId) {
+    errors.push('Destination charging port ID is required');
+  }
+
+  if (data.requestedKwh === undefined || typeof data.requestedKwh !== 'number' || data.requestedKwh <= 0) {
+    errors.push('Requested energy in kWh must be a positive number');
+  }
+
+  return { isValid: errors.length === 0, errors };
+};
+
+/**
+ * Validate Request Status Update.
+ */
+export const validateUpdateRequestStatus = (data) => {
+  const errors = [];
+  const validStatuses = ['accepted', 'rejected'];
+
+  if (!data.status || !validStatuses.includes(data.status)) {
+    errors.push('Status must be either accepted or rejected');
   }
 
   return { isValid: errors.length === 0, errors };

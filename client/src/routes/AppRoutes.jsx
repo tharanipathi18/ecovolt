@@ -27,16 +27,13 @@ import ChargingStations from '@pages/charging/ChargingStations';
 import FleetManagement from '@pages/fleet/FleetManagement';
 import AdminPanel from '@pages/admin/AdminPanel';
 
+import Profile from '@pages/profile/Profile';
+import Settings from '@pages/profile/Settings';
+
 import NotFound from '@pages/NotFound';
 
 /**
  * Complete Application Route Configuration with Standalone Hidden Admin Portal.
- *
- * Route Structure:
- *  1. Public Website Routes      → PublicLayout (Home, About, Features, Contact)
- *  2. Guest Auth Routes          → Login, Register, ForgotPassword
- *  3. Protected User Dashboards  → MainLayout (Dashboard, Energy, Charging, Fleet)
- *  4. Dedicated Hidden Admin Portal → AdminLayout (/admin/login & /admin/* protected for role: admin)
  */
 export default function AppRoutes() {
   return (
@@ -79,7 +76,6 @@ export default function AppRoutes() {
       <Route path="/admin/login" element={<AdminLogin />} />
 
       {/* ─── Standalone Hidden Admin Portal (/admin/*) ────────────────────── */}
-      {/* Protected: Only users with role = 'admin' can access. Non-admins see 403 Forbidden */}
       <Route
         element={
           <ProtectedRoute roles={['admin']}>
@@ -95,6 +91,7 @@ export default function AppRoutes() {
         <Route path="/admin/vehicles" element={<AdminPanel />} />
         <Route path="/admin/bookings" element={<AdminPanel />} />
         <Route path="/admin/sessions" element={<AdminPanel />} />
+        <Route path="/admin/energy-trading" element={<AdminPanel />} />
         <Route path="/admin/reports" element={<AdminPanel />} />
         <Route path="/admin/notifications" element={<AdminPanel />} />
         <Route path="/admin/settings" element={<AdminPanel />} />
@@ -129,7 +126,7 @@ export default function AppRoutes() {
         <Route
           path="/charging"
           element={
-            <ProtectedRoute roles={['ev_port', 'admin']}>
+            <ProtectedRoute roles={['ev_port', 'ev_user', 'fleet_manager', 'admin']}>
               <ChargingStations />
             </ProtectedRoute>
           }
@@ -140,6 +137,24 @@ export default function AppRoutes() {
           element={
             <ProtectedRoute roles={['fleet_manager', 'admin']}>
               <FleetManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />

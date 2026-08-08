@@ -17,9 +17,9 @@ import {
 /**
  * Smart EV Companion — Complete EV User Dashboard with real API & DB persistence.
  */
-export default function Dashboard() {
+export default function Dashboard({ initialTab = 'companion' }) {
   const { user, setUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('companion'); // 'companion' | 'nearby' | 'history' | 'profile'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'companion' | 'nearby' | 'history' | 'profile'
   const [isRegisterVehicleModalOpen, setIsRegisterVehicleModalOpen] = useState(false);
   const [isBookSlotModalOpen, setIsBookSlotModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -87,8 +87,8 @@ export default function Dashboard() {
       const vRes = await evUserService.getVehicles();
       const fetchedVehicles = vRes.data?.vehicles || [];
       setVehicles(fetchedVehicles);
-      if (fetchedVehicles.length > 0 && !activeVehicleId) {
-        setActiveVehicleId(fetchedVehicles[0].id);
+      if (fetchedVehicles.length > 0) {
+        setActiveVehicleId((prev) => prev || fetchedVehicles[0].id);
       }
 
       // 2. Fetch Nearby Stations & Ports
@@ -117,7 +117,7 @@ export default function Dashboard() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [activeVehicleId]);
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -262,20 +262,20 @@ export default function Dashboard() {
       )}
 
       {/* Top Banner & Vehicle Switcher Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950/80 via-surface-800 to-secondary-950/80 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             ⚡
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                Smart EV Companion
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Good morning, {user?.name || 'EV Driver'}
               </h1>
               <Badge variant="primary" dot pulse>Live Grid Sync</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Welcome back, <span className="text-white font-medium">{user?.name || 'EV Driver'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Here's your EcoVolt overview •{' '}
               {activeVehicle ? `${activeVehicle.make} ${activeVehicle.model} (${activeVehicle.licensePlate})` : 'No vehicles registered'}
             </p>
           </div>
@@ -290,7 +290,7 @@ export default function Dashboard() {
               className="w-56"
             />
           ) : (
-            <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
+            <span className="text-xs text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 font-medium">
               No vehicles registered
             </span>
           )}
@@ -345,13 +345,13 @@ export default function Dashboard() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('companion')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'companion'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ⚡ Vehicle Telemetry ({vehicles.length})
@@ -360,8 +360,8 @@ export default function Dashboard() {
           onClick={() => setActiveTab('nearby')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'nearby'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🔌 Nearby Charging &amp; Booking ({nearbyStations.length})
@@ -370,8 +370,8 @@ export default function Dashboard() {
           onClick={() => setActiveTab('history')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'history'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📋 History &amp; Sustainability
@@ -380,8 +380,8 @@ export default function Dashboard() {
           onClick={() => setActiveTab('profile')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'profile'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           👤 Profile Settings
@@ -391,10 +391,10 @@ export default function Dashboard() {
       {/* TAB 1: Smart Vehicle Remote Controller & Battery Dashboard */}
       {activeTab === 'companion' && (
         !activeVehicle ? (
-          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <span className="text-4xl block">🚗</span>
-            <h3 className="text-lg font-bold text-white">No vehicles registered.</h3>
-            <p className="text-xs text-surface-400">Click "+ Add Vehicle" above to register your EV in Supabase DB.</p>
+            <h3 className="text-lg font-bold text-slate-900">No vehicles registered.</h3>
+            <p className="text-xs text-slate-500">Click "+ Add Vehicle" above to register your EV in Supabase DB.</p>
             <Button variant="primary" size="md" onClick={() => setIsRegisterVehicleModalOpen(true)}>
               + Add Vehicle Now
             </Button>
@@ -403,7 +403,7 @@ export default function Dashboard() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Remote Controller Simulator Widget */}
-              <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-surface-700/60 flex flex-col justify-between">
+              <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
                 <CardHeader
                   title="Smart Vehicle Controller (Live Telemetry)"
                   subtitle={`Remote telemetry & interactive controls for ${activeVehicle.make} ${activeVehicle.model}`}
@@ -420,8 +420,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, doorsLocked: !vehicleControls.doorsLocked })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.doorsLocked
-                        ? 'bg-surface-800/80 border-surface-700 text-surface-300'
-                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        : 'bg-amber-50 border-amber-200 text-amber-900 font-semibold'
                     }`}
                   >
                     <span className="text-3xl block mb-1">{vehicleControls.doorsLocked ? '🔒' : '🔓'}</span>
@@ -433,8 +433,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, chargingActive: !vehicleControls.chargingActive })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.chargingActive
-                        ? 'bg-primary-500/20 border-primary-500/40 text-primary-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-3xl block mb-1">⚡</span>
@@ -446,8 +446,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, climateControl: !vehicleControls.climateControl })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.climateControl
-                        ? 'bg-secondary-500/20 border-secondary-500/40 text-secondary-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-sky-50 border-sky-300 text-sky-900 font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-3xl block mb-1">❄️</span>
@@ -459,8 +459,8 @@ export default function Dashboard() {
                     onClick={() => setVehicleControls({ ...vehicleControls, flashersOn: !vehicleControls.flashersOn })}
                     className={`p-4 rounded-2xl border text-center transition-all ${
                       vehicleControls.flashersOn
-                        ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                        : 'bg-surface-800/80 border-surface-700 text-surface-300'
+                        ? 'bg-rose-50 border-rose-300 text-rose-900 font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-3xl block mb-1">🚨</span>
@@ -470,24 +470,24 @@ export default function Dashboard() {
               </div>
 
               {/* Vehicle Specs */}
-              <Card variant="glass" padding="normal" className="flex flex-col justify-between">
+              <Card variant="solid" padding="normal" className="flex flex-col justify-between">
                 <CardHeader title="Vehicle Specifications" subtitle="Registered EV details" />
                 <div className="space-y-3 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-surface-400">Make &amp; Model:</span>
-                    <span className="text-white font-bold">{activeVehicle.make} {activeVehicle.model}</span>
+                    <span className="text-slate-500">Make &amp; Model:</span>
+                    <span className="text-slate-900 font-bold">{activeVehicle.make} {activeVehicle.model}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-surface-400">License Plate:</span>
-                    <span className="text-primary-400 font-bold">{activeVehicle.licensePlate}</span>
+                    <span className="text-slate-500">License Plate:</span>
+                    <span className="text-emerald-800 font-bold">{activeVehicle.licensePlate}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-surface-400">Battery Capacity:</span>
-                    <span className="text-white font-bold">{activeVehicle.batteryCapacityKwh} kWh</span>
+                    <span className="text-slate-500">Battery Capacity:</span>
+                    <span className="text-slate-900 font-bold">{activeVehicle.batteryCapacityKwh} kWh</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-surface-400">Connector Standard:</span>
-                    <span className="text-secondary-400 font-bold uppercase">{activeVehicle.connectorType}</span>
+                    <span className="text-slate-500">Connector Standard:</span>
+                    <span className="text-slate-800 font-bold uppercase">{activeVehicle.connectorType}</span>
                   </div>
                 </div>
               </Card>
@@ -500,41 +500,49 @@ export default function Dashboard() {
       {activeTab === 'nearby' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Nearby Clean Charging Stations</h2>
+            <h2 className="text-lg font-bold text-slate-900">Nearby Clean Charging Stations</h2>
             <Badge variant="primary">{nearbyStations.length} Available Ports</Badge>
           </div>
 
           {isLoadingData ? (
-            <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
-              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-3">
+              <div className="w-6 h-6 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
               <span>Loading live charging stations from Supabase...</span>
             </div>
           ) : nearbyStations.length === 0 ? (
-            <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 text-surface-400">
-              No charging stations available.
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 shadow-sm">
+              No charging stations are currently available.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {nearbyStations.map((station) => (
-                <Card key={station.id} variant="glass" padding="normal" className="flex flex-col justify-between">
+                <Card key={station.id} variant="solid" padding="normal" className="flex flex-col justify-between">
                   <div>
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-base font-bold text-white">{station.stationName || station.name}</h3>
+                      <h3 className="text-base font-bold text-slate-900">{station.stationName || station.name}</h3>
                       <Badge variant="success" size="sm">Available</Badge>
                     </div>
 
-                    <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
+                    <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
                       <div className="flex justify-between">
-                        <span className="text-surface-400">Port Code:</span>
-                        <span className="text-primary-400 font-mono font-bold">{station.portIdentifier || 'PORT-01'}</span>
+                        <span className="text-slate-500">Location:</span>
+                        <span className="text-slate-900 font-semibold">{station.city || station.address || 'Station Hub'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-surface-400">Connector:</span>
-                        <span className="text-white font-medium uppercase">{station.connectorType}</span>
+                        <span className="text-slate-500">Port Code:</span>
+                        <span className="text-emerald-800 font-mono font-bold">{station.portIdentifier || 'PORT-01'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-surface-400">Rate:</span>
-                        <span className="text-white font-semibold">${station.pricingRatePerKwh} / kWh</span>
+                        <span className="text-slate-500">Connector:</span>
+                        <span className="text-slate-900 font-medium uppercase">{station.connectorType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Max Power:</span>
+                        <span className="text-slate-900 font-medium">{station.maxPowerOutputKw || 150} kW</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Rate:</span>
+                        <span className="text-slate-900 font-semibold">${station.pricingRatePerKwh || station.ratePerKwh} / kWh</span>
                       </div>
                     </div>
                   </div>
@@ -557,21 +565,21 @@ export default function Dashboard() {
 
           {/* Bookings List (Persistent from Supabase DB) */}
           <div className="space-y-3 pt-4">
-            <h3 className="text-md font-bold text-white">Your Reserved Bookings ({bookings.length})</h3>
+            <h3 className="text-md font-bold text-slate-900">Your Reserved Bookings ({bookings.length})</h3>
             {bookings.length === 0 ? (
-              <div className="p-6 text-center glass-card rounded-xl border border-surface-700 text-xs text-surface-400">
+              <div className="p-6 text-center bg-white rounded-xl border border-slate-200 text-xs text-slate-500 shadow-2xs">
                 No bookings found.
               </div>
             ) : (
               <div className="space-y-2">
                 {bookings.map((b) => (
-                  <div key={b.id} className="p-4 rounded-xl glass-card border border-surface-700 flex items-center justify-between text-xs">
+                  <div key={b.id} className="p-4 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs shadow-2xs">
                     <div>
-                      <span className="font-mono text-secondary-400 font-bold">{b.bookingReference}</span>
-                      <p className="text-white font-bold text-sm mt-0.5">
+                      <span className="font-mono text-emerald-800 font-bold">{b.bookingReference}</span>
+                      <p className="text-slate-900 font-bold text-sm mt-0.5">
                         {b.chargingPort?.stationName || 'Charging Hub'} ({b.chargingPort?.portIdentifier || 'PORT'})
                       </p>
-                      <p className="text-surface-400">
+                      <p className="text-slate-500">
                         {new Date(b.scheduledStartTime).toLocaleString()} • {b.durationMinutes} mins • Vehicle: {b.vehicle?.licensePlate || 'EV'}
                       </p>
                     </div>
@@ -579,7 +587,7 @@ export default function Dashboard() {
                       <Badge variant={b.status === 'confirmed' ? 'success' : b.status === 'pending' ? 'warning' : 'danger'} dot>
                         {b.status.toUpperCase()}
                       </Badge>
-                      <p className="text-emerald-400 font-bold mt-1">${b.estimatedCost}</p>
+                      <p className="text-emerald-800 font-bold mt-1">${b.estimatedCost}</p>
                     </div>
                   </div>
                 ))}
@@ -592,18 +600,18 @@ export default function Dashboard() {
       {/* TAB 3: Charging History & Sustainability Impact */}
       {activeTab === 'history' && (
         <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-surface-800 to-primary-950/60 border border-emerald-500/30 flex items-center justify-between">
+          <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-white">Your Environmental Impact 🌿</h3>
-              <p className="text-xs text-surface-400 mt-0.5">
-                By charging on EcoVolt's clean grid, you've prevented <span className="text-emerald-400 font-bold">{sustainability?.co2SavedKg || 0} kg CO2</span> emissions.
+              <h3 className="text-lg font-bold text-slate-900">Your Environmental Impact 🌿</h3>
+              <p className="text-xs text-slate-600 mt-0.5">
+                By charging on EcoVolt's clean grid, you've prevented <span className="text-emerald-800 font-bold">{sustainability?.co2SavedKg || 0} kg CO2</span> emissions.
               </p>
             </div>
             <div className="text-4xl">🌳</div>
           </div>
 
           <section className="space-y-4">
-            <h2 className="text-lg font-bold text-white tracking-tight">Charging History Log</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Charging History Log</h2>
             <Table columns={historyColumns} data={historySessions} emptyMessage="No charging sessions found." />
           </section>
         </div>
@@ -611,7 +619,7 @@ export default function Dashboard() {
 
       {/* TAB 4: User Profile & Settings */}
       {activeTab === 'profile' && (
-        <Card variant="glass" padding="normal" className="max-w-2xl">
+        <Card variant="solid" padding="normal" className="max-w-2xl">
           <CardHeader title="EV Driver Profile & Preferences" subtitle="Update account information" />
           <form onSubmit={handleSaveProfile} className="space-y-4 py-2">
             <Input
@@ -699,7 +707,7 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button variant="secondary" onClick={() => setIsRegisterVehicleModalOpen(false)}>
               Cancel
             </Button>
@@ -737,24 +745,24 @@ export default function Dashboard() {
             ]}
           />
 
-          <div className="p-4 rounded-xl bg-surface-800/80 border border-surface-700 text-xs space-y-1">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
             <div className="flex justify-between">
-              <span className="text-surface-400">Selected Station:</span>
-              <span className="text-white font-medium">{selectedStation?.stationName || selectedStation?.name}</span>
+              <span className="text-slate-500">Selected Station:</span>
+              <span className="text-slate-900 font-semibold">{selectedStation?.stationName || selectedStation?.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-surface-400">Vehicle:</span>
-              <span className="text-white font-medium">{activeVehicle?.make} {activeVehicle?.model} ({activeVehicle?.licensePlate})</span>
+              <span className="text-slate-500">Vehicle:</span>
+              <span className="text-slate-900 font-semibold">{activeVehicle?.make} {activeVehicle?.model} ({activeVehicle?.licensePlate})</span>
             </div>
-            <div className="flex justify-between pt-1 border-t border-surface-700/50">
-              <span className="text-surface-400">Estimated Cost:</span>
-              <span className="text-emerald-400 font-bold text-sm">
+            <div className="flex justify-between pt-1 border-t border-slate-200">
+              <span className="text-slate-500">Estimated Cost:</span>
+              <span className="text-emerald-800 font-bold text-sm">
                 ${((selectedStation?.maxPowerOutputKw || 50) * (parseInt(bookingFormData.durationMinutes, 10) / 60) * 0.8 * (selectedStation?.pricingRatePerKwh || 0.35)).toFixed(2)}
               </span>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button variant="secondary" onClick={() => setIsBookSlotModalOpen(false)}>
               Cancel
             </Button>
@@ -774,3 +782,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

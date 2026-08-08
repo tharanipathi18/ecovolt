@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import chargingService from '@services/chargingService';
+import energyService from '@services/energyService';
+import Dashboard from '@pages/dashboard/Dashboard';
+import FleetManagement from '@pages/fleet/FleetManagement';
+import EnergyOverview from '@pages/energy/EnergyOverview';
 import {
   StatCard,
   Card,
@@ -15,14 +19,15 @@ import {
 } from '@components/common';
 
 /**
- * EV Charging Port Module — Production Ready with Real Supabase DB Integration.
+ * EV Charging Port Owner Operator Module — Production Ready with Real Supabase DB Integration.
  */
-export default function ChargingStations() {
+function ChargingStationOwnerDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('slots'); // 'slots' | 'sessions' | 'bookings'
+  const [activeTab, setActiveTab] = useState('slots'); // 'slots' | 'marketplace' | 'purchases' | 'sessions' | 'bookings'
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isAddPortModalOpen, setIsAddPortModalOpen] = useState(false);
   const [isStartSessionModalOpen, setIsStartSessionModalOpen] = useState(false);
+  const [isRequestEnergyModalOpen, setIsRequestEnergyModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
   // Dynamic API State (Strictly from Supabase DB — No Mock Data)
@@ -30,6 +35,9 @@ export default function ChargingStations() {
   const [activeSessions, setActiveSessions] = useState([]);
   const [operatorBookings, setOperatorBookings] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [marketplaceOffers, setMarketplaceOffers] = useState([]);
+  const [myPurchases, setMyPurchases] = useState([]);
+  const [selectedOffer, setSelectedOffer] = useState(null);
 
   // Loading & Submitting States
   const [isLoading, setIsLoading] = useState(true);
@@ -65,29 +73,36 @@ export default function ChargingStations() {
     city: '',
   });
 
+  const [requestFormData, setRequestFormData] = useState({
+    chargingPortId: '',
+    requestedKwh: '500',
+  });
+
   // ─── Fetch All Operator Data from Backend API ────────────────────────────
   const loadOperatorData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch Ports
-      const pRes = await chargingService.getPorts();
+      const [pRes, sRes, bRes, aRes, oRes, purRes] = await Promise.all([
+        chargingService.getPorts(),
+        chargingService.getSessions({ status: 'active' }),
+        chargingService.getBookings(),
+        chargingService.getAnalytics(),
+        energyService.getActiveOffers(),
+        energyService.getMyPurchaseRequests(),
+      ]);
+
       const fetchedPorts = pRes.data?.ports || [];
       setPorts(fetchedPorts);
-      if (fetchedPorts.length > 0 && !sessionFormData.chargingPortId) {
-        setSessionFormData((prev) => ({ ...prev, chargingPortId: fetchedPorts[0].id }));
+      if (fetchedPorts.length > 0) {
+        if (!sessionFormData.chargingPortId) setSessionFormData((prev) => ({ ...prev, chargingPortId: fetchedPorts[0].id }));
+        if (!requestFormData.chargingPortId) setRequestFormData((prev) => ({ ...prev, chargingPortId: fetchedPorts[0].id }));
       }
 
-      // 2. Fetch ONLY Active Sessions for Release Vehicle tab
-      const sRes = await chargingService.getSessions({ status: 'active' });
       setActiveSessions(sRes.data?.sessions || []);
-
-      // 3. Fetch Bookings for Owner Accept/Reject
-      const bRes = await chargingService.getBookings();
       setOperatorBookings(bRes.data?.bookings || []);
-
-      // 4. Fetch Analytics
-      const aRes = await chargingService.getAnalytics();
       setAnalytics(aRes.data?.summary || null);
+      setMarketplaceOffers(oRes.data?.offers || []);
+      setMyPurchases(purRes.data?.requests || []);
     } catch (err) {
       setNotification({
         type: 'error',
@@ -97,11 +112,51 @@ export default function ChargingStations() {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionFormData.chargingPortId]);
+  }, []);
 
   useEffect(() => {
     loadOperatorData();
   }, [loadOperatorData]);
+
+  // ─── Handle Send Energy Purchase Request ────────────────────────────────
+  const handleSendPurchaseRequest = async (e) => {
+    e.preventDefault();
+    if (!selectedOffer) return;
+    if (!requestFormData.chargingPortId) {
+      setNotification({ type: 'error', title: 'Validation Error', message: 'Select a destination charging port.' });
+      return;
+    }
+    const reqKwh = parseFloat(requestFormData.requestedKwh);
+    if (reqKwh > selectedOffer.availableKwh) {
+      setNotification({
+        type: 'error',
+        title: 'Insufficient Available Energy',
+        message: `Insufficient available energy. Maximum remaining: ${selectedOffer.availableKwh} kWh`,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await energyService.createPurchaseRequest({
+        offerId: selectedOffer.id,
+        chargingPortId: requestFormData.chargingPortId,
+        requestedKwh: reqKwh,
+      });
+
+      setIsRequestEnergyModalOpen(false);
+      setNotification({
+        type: 'success',
+        title: 'Purchase Request Sent! ⚡',
+        message: `Request for ${reqKwh} kWh sent to ${selectedOffer.generator?.name}.`,
+      });
+      loadOperatorData();
+    } catch (err) {
+      setNotification({ type: 'error', title: 'Request Failed', message: err.message || err.response?.data?.message || 'Could not send energy purchase request.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // ─── Station Owner Application Submission Handler ───────────────────────
   const handleApplyStation = async (e) => {
@@ -169,6 +224,7 @@ export default function ChargingStations() {
       await chargingService.startSession({
         chargingPortId: sessionFormData.chargingPortId,
         vehicleId: sessionFormData.vehicleId,
+        bookingId: sessionFormData.bookingId,
         startStateOfCharge: parseFloat(sessionFormData.startStateOfCharge),
       });
 
@@ -281,6 +337,22 @@ export default function ChargingStations() {
               Reject
             </Button>
           </div>
+        ) : row.status === 'confirmed' ? (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setSessionFormData({
+                chargingPortId: row.chargingPortId,
+                vehicleId: row.vehicleId,
+                bookingId: row.id,
+                startStateOfCharge: 20,
+              });
+              setIsStartSessionModalOpen(true);
+            }}
+          >
+            ⚡ Start Session
+          </Button>
         ) : (
           <span className="text-xs text-surface-500 capitalize">{row.status}</span>
         )
@@ -303,35 +375,39 @@ export default function ChargingStations() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-secondary-950/80 via-surface-800 to-primary-950/80 border border-secondary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-secondary-500/10 border border-secondary-500/30 text-secondary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             🔌
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 EV Charging Infrastructure Module
               </h1>
               <Badge variant="success" dot pulse>Live Supabase Sync</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Operator: <span className="text-white font-medium">{user?.name || 'Port Operator'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Operator: <span className="text-slate-900 font-semibold">{user?.name || 'Port Operator'}</span> •{' '}
               {totalPortsCount} Managed Connectors
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <Button variant="outline" size="md" onClick={() => setIsApplyModalOpen(true)}>
-            📋 Become Station Owner
-          </Button>
-          <Button variant="secondary" size="md" onClick={() => setIsAddPortModalOpen(true)}>
-            + Register Port
-          </Button>
-          <Button variant="primary" size="md" onClick={() => setIsStartSessionModalOpen(true)}>
-            ⚡ Start Session
-          </Button>
+          {(user?.role === 'ev_port' || user?.role === 'admin') && (
+            <>
+              <Button variant="outline" size="md" onClick={() => setIsApplyModalOpen(true)}>
+                📋 Become Station Owner
+              </Button>
+              <Button variant="secondary" size="md" onClick={() => setIsAddPortModalOpen(true)}>
+                + Register Port
+              </Button>
+              <Button variant="primary" size="md" onClick={() => setIsStartSessionModalOpen(true)}>
+                ⚡ Start Session
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -380,23 +456,43 @@ export default function ChargingStations() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('slots')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'slots'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🔌 Charging Slots ({ports.length})
         </button>
         <button
+          onClick={() => setActiveTab('marketplace')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'marketplace'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>🛒 Buy Renewable Energy ({marketplaceOffers.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('purchases')}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'purchases'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>📜 Energy Purchases ({myPurchases.length})</span>
+        </button>
+        <button
           onClick={() => setActiveTab('sessions')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'sessions'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ⚡ Active Charging ({activeSessions.length})
@@ -405,8 +501,8 @@ export default function ChargingStations() {
           onClick={() => setActiveTab('bookings')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'bookings'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📋 Booking Requests ({operatorBookings.length})
@@ -416,15 +512,15 @@ export default function ChargingStations() {
       {/* TAB 1: Charging Slots Grid */}
       {activeTab === 'slots' && (
         isLoading ? (
-          <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
-            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
             <span>Loading charging stations from Supabase...</span>
           </div>
         ) : ports.length === 0 ? (
-          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <span className="text-4xl block">🔌</span>
-            <h3 className="text-lg font-bold text-white">No charging stations available.</h3>
-            <p className="text-xs text-surface-400">Click "Become Station Owner" to submit an application for Admin approval.</p>
+            <h3 className="text-lg font-bold text-slate-900">No charging stations available.</h3>
+            <p className="text-xs text-slate-500">Click "Become Station Owner" to submit an application for Admin approval.</p>
             <Button variant="primary" size="md" onClick={() => setIsApplyModalOpen(true)}>
               📋 Become Station Owner Now
             </Button>
@@ -432,12 +528,12 @@ export default function ChargingStations() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {ports.map((port) => (
-              <Card key={port.id} variant="glass" padding="normal" className="flex flex-col justify-between">
+              <Card key={port.id} variant="solid" padding="normal" className="flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className="text-xs font-mono text-secondary-400">{port.portIdentifier}</span>
-                      <h3 className="text-base font-bold text-white mt-0.5">{port.stationName}</h3>
+                      <span className="text-xs font-mono text-emerald-800 font-bold">{port.portIdentifier}</span>
+                      <h3 className="text-base font-bold text-slate-900 mt-0.5">{port.stationName}</h3>
                     </div>
                     <Badge
                       variant={
@@ -455,23 +551,23 @@ export default function ChargingStations() {
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
+                  <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Connector:</span>
-                      <span className="text-white font-semibold uppercase">{port.connectorType?.replace('_', ' ')}</span>
+                      <span className="text-slate-500">Connector:</span>
+                      <span className="text-slate-900 font-semibold uppercase">{port.connectorType?.replace('_', ' ')}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Max Output:</span>
-                      <span className="text-primary-400 font-bold">{port.maxPowerOutputKw} kW</span>
+                      <span className="text-slate-500">Max Output:</span>
+                      <span className="text-emerald-800 font-bold">{port.maxPowerOutputKw} kW</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Tariff:</span>
-                      <span className="text-white font-semibold">${port.pricingRatePerKwh} / kWh</span>
+                      <span className="text-slate-500">Tariff:</span>
+                      <span className="text-slate-900 font-semibold">${port.pricingRatePerKwh} / kWh</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-surface-700/50 flex flex-col gap-2">
+                <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col gap-2">
                   {port.isApproved && port.status === 'available' && (
                     <Button
                       variant="primary"
@@ -492,11 +588,139 @@ export default function ChargingStations() {
         )
       )}
 
+      {/* TAB: Energy Marketplace */}
+      {activeTab === 'marketplace' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">Available Renewable Energy Offers</h2>
+              <p className="text-xs text-slate-500">Procure clean solar, wind, and hydro energy directly from registered Energy Generators.</p>
+            </div>
+            <Badge variant="success">{marketplaceOffers.length} Active Lots Available</Badge>
+          </div>
+
+          {marketplaceOffers.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <span className="text-4xl block">🛒</span>
+              <h3 className="text-lg font-bold text-slate-900">No renewable energy offers are currently available.</h3>
+              <p className="text-xs text-slate-500">Please check again later.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {marketplaceOffers.map((offer) => (
+                <Card key={offer.id} variant="solid" padding="normal" className="flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-xs font-mono text-emerald-800 uppercase font-bold">{offer.generator?.type || 'Clean Power'}</span>
+                        <h3 className="text-base font-bold text-slate-900 mt-0.5">{offer.generator?.name}</h3>
+                        <p className="text-xs text-slate-500">Generator: <span className="font-semibold text-slate-800">{offer.generator?.operator?.name || 'Energy Generator'}</span></p>
+                      </div>
+                      <Badge variant="success" dot>Available</Badge>
+                    </div>
+
+                    <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Available Energy:</span>
+                        <span className="text-emerald-800 font-extrabold text-sm">{offer.availableKwh} kWh</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Price Rate:</span>
+                        <span className="text-slate-900 font-bold text-sm">${offer.pricePerKwh} / kWh</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Facility Location:</span>
+                        <span className="text-slate-700 font-semibold">{offer.generator?.locationAddress || offer.generator?.locationCity || 'San Francisco, CA'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => {
+                      setSelectedOffer(offer);
+                      setRequestFormData({ chargingPortId: ports[0]?.id || '', requestedKwh: String(Math.min(500, offer.availableKwh)) });
+                      setIsRequestEnergyModalOpen(true);
+                    }}
+                  >
+                    ⚡ Request Energy
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB: Purchased Energy History */}
+      {activeTab === 'purchases' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">Energy Purchase History</h2>
+              <p className="text-xs text-slate-500">Track requested and delivered renewable power transactions.</p>
+            </div>
+            <Badge variant="primary">{myPurchases.length} Purchase Orders</Badge>
+          </div>
+
+          {myPurchases.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <span className="text-4xl block">📜</span>
+              <h3 className="text-lg font-bold text-slate-900">No energy purchases yet.</h3>
+              <p className="text-xs text-slate-500">Browse the Energy Marketplace tab to request clean energy for your charging ports.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {myPurchases.map((pur) => (
+                <Card key={pur.id} variant="solid" padding="normal" className="flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-xs font-mono text-slate-400 font-bold">{pur.requestReference}</span>
+                        <h3 className="text-base font-bold text-slate-900 mt-0.5">{pur.offer?.generator?.name || 'Clean Facility'}</h3>
+                        <p className="text-xs text-slate-500">Destination: <span className="font-semibold text-slate-800">{pur.chargingPort?.stationName}</span></p>
+                      </div>
+                      <Badge
+                        variant={pur.status === 'accepted' ? 'success' : pur.status === 'rejected' ? 'danger' : 'warning'}
+                        dot
+                      >
+                        {pur.status.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 py-3 my-3 border-y border-slate-100 text-xs">
+                      <div>
+                        <span className="text-slate-500 block">Purchased Energy</span>
+                        <span className="text-slate-900 font-bold text-sm">{pur.requestedKwh} kWh</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Unit Tariff Rate</span>
+                        <span className="text-slate-900 font-bold text-sm">${pur.pricePerKwh} / kWh</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Total Amount Paid</span>
+                        <span className="text-emerald-700 font-extrabold text-sm">${pur.totalCost.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Order Date</span>
+                        <span className="text-slate-700 font-semibold">{new Date(pur.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* TAB 2: Active Sessions (Only Display Currently Charging Vehicles) */}
       {activeTab === 'sessions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Active Charging Vehicles</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Active Charging Vehicles</h2>
             <Badge variant="info">Live Charging Telemetry</Badge>
           </div>
           <Table
@@ -511,7 +735,7 @@ export default function ChargingStations() {
       {activeTab === 'bookings' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Slot Reservation Requests</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Slot Reservation Requests</h2>
             <Badge variant="warning">Owner Decision Required</Badge>
           </div>
           <Table
@@ -521,6 +745,7 @@ export default function ChargingStations() {
           />
         </section>
       )}
+
 
       {/* MODAL 0: Apply to Become Charging Station Owner */}
       <Modal
@@ -730,6 +955,88 @@ export default function ChargingStations() {
           </div>
         </form>
       </Modal>
+
+      {/* MODAL 3: Energy Purchase Request */}
+      <Modal
+        isOpen={isRequestEnergyModalOpen}
+        onClose={() => setIsRequestEnergyModalOpen(false)}
+        title="Send Energy Purchase Request"
+        subtitle={`Request clean energy from ${selectedOffer?.generator?.name || 'Generator'}`}
+      >
+        <form onSubmit={handleSendPurchaseRequest} className="space-y-4 py-2">
+          <Select
+            label="Destination Charging Station / Port *"
+            value={requestFormData.chargingPortId}
+            onChange={(e) => setRequestFormData({ ...requestFormData, chargingPortId: e.target.value })}
+            options={ports.map((p) => ({ value: p.id, label: `${p.stationName} (${p.portIdentifier})` }))}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Available Facility Energy"
+              disabled
+              value={`${selectedOffer?.availableKwh || 0} kWh`}
+            />
+            <Input
+              label="Price Rate ($ / kWh)"
+              disabled
+              value={`$${selectedOffer?.pricePerKwh || 0} / kWh`}
+            />
+          </div>
+
+          <Input
+            label="Requested Energy Quantity (kWh) *"
+            type="number"
+            required
+            placeholder="e.g. 500"
+            value={requestFormData.requestedKwh}
+            onChange={(e) => setRequestFormData({ ...requestFormData, requestedKwh: e.target.value })}
+          />
+
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200/80 space-y-1">
+            <div className="flex justify-between text-xs text-emerald-800">
+              <span>Unit Rate:</span>
+              <span>${selectedOffer?.pricePerKwh || 0} / kWh</span>
+            </div>
+            <div className="flex justify-between text-sm font-extrabold text-emerald-900 pt-1 border-t border-emerald-200/50">
+              <span>Estimated Total Cost:</span>
+              <span>${((parseFloat(requestFormData.requestedKwh) || 0) * (selectedOffer?.pricePerKwh || 0)).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
+            <Button variant="secondary" onClick={() => setIsRequestEnergyModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Sending Request...' : 'Send Request'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
+}
+
+/**
+ * Smart Role Router for /charging route.
+ * Renders EV User Charging View for ev_user, Fleet Charging View for fleet_manager,
+ * Energy View for generator, and Charging Station Owner Dashboard for ev_port / admin.
+ */
+export default function ChargingStations() {
+  const { user } = useAuth();
+
+  if (user?.role === 'ev_user') {
+    return <Dashboard initialTab="nearby" />;
+  }
+
+  if (user?.role === 'fleet_manager') {
+    return <FleetManagement initialTab="charging" />;
+  }
+
+  if (user?.role === 'generator') {
+    return <EnergyOverview />;
+  }
+
+  return <ChargingStationOwnerDashboard />;
 }

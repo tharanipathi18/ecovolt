@@ -56,12 +56,8 @@ export const validateCreatePort = (data) => {
 export const validateStartSession = (data) => {
   const errors = [];
 
-  if (!data.chargingPortId) {
-    errors.push('Charging port ID is required');
-  }
-
-  if (!data.vehicleId) {
-    errors.push('Vehicle ID is required');
+  if (!data.chargingPortId && !data.bookingId && !data.vehicleId) {
+    errors.push('Booking ID, Charging Port ID, or Vehicle ID is required');
   }
 
   if (data.startStateOfCharge !== undefined && (typeof data.startStateOfCharge !== 'number' || data.startStateOfCharge < 0 || data.startStateOfCharge > 100)) {

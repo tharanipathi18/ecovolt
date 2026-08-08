@@ -2,35 +2,72 @@ import apiClient from './apiClient';
 
 /**
  * Fleet Management API service.
- * Handles commercial fleet vehicle registration, driver management & assignments, charging schedule optimization, maintenance, and analytics.
+ * Handles fleet vehicle registration, driver management, complaints, maintenance scheduling, analytics, and charging.
  */
 const fleetService = {
+  // ─── Consolidated Dashboard ──────────────────────────────────────
+  /** Get consolidated fleet dashboard data in a single request */
+  getFleetDashboard: () => apiClient.get('/fleet/dashboard'),
+
+  // ─── Fleet Vehicles ──────────────────────────────────────────────
   /** Get all fleet vehicles */
   getFleetVehicles: () => apiClient.get('/fleet/vehicles'),
 
-  /** Register a commercial vehicle into fleet */
+  /** Register a new commercial fleet vehicle (all fields inline) */
   registerFleetVehicle: (data) => apiClient.post('/fleet/vehicles', data),
 
-  /** Get commercial drivers */
+  /** Update vehicle status (ACTIVE, IN_MAINTENANCE, CHARGING, INACTIVE) */
+  updateVehicleStatus: (id, vehicleStatus) => apiClient.patch(`/fleet/vehicles/${id}/status`, { vehicleStatus }),
+
+  /** Update charging schedule for a fleet vehicle */
+  updateSchedule: (id, data) => apiClient.put(`/fleet/vehicles/${id}/schedule`, data),
+
+  // ─── Drivers ─────────────────────────────────────────────────────
+  /** Get all drivers employed by this manager */
   getDrivers: () => apiClient.get('/fleet/drivers'),
 
-  /** Create driver profile */
+  /** Create driver (atomically creates User + Driver profile) */
   createDriver: (data) => apiClient.post('/fleet/drivers', data),
 
   /** Assign driver to fleet vehicle */
   assignDriver: (data) => apiClient.post('/fleet/assign-driver', data),
 
-  /** Update charging schedule for vehicle */
-  updateSchedule: (id, data) => apiClient.put(`/fleet/schedule/${id}`, data),
+  // ─── Complaints ───────────────────────────────────────────────────
+  /** Get all complaints */
+  getComplaints: () => apiClient.get('/fleet/complaints'),
 
-  /** File maintenance report */
-  createMaintenanceReport: (data) => apiClient.post('/fleet/maintenance', data),
+  /** Raise a complaint (driver or fleet manager) */
+  createComplaint: (data) => apiClient.post('/fleet/complaints', data),
 
-  /** Get maintenance reports */
-  getMaintenanceReports: () => apiClient.get('/fleet/maintenance'),
+  /** Update complaint status */
+  updateComplaint: (id, status) => apiClient.put(`/fleet/complaints/${id}`, { status }),
 
-  /** Get fleet analytics summary */
+  // ─── Maintenance Schedules ────────────────────────────────────────
+  /** Get all maintenance schedules */
+  getMaintenanceSchedules: () => apiClient.get('/fleet/maintenance'),
+
+  /** Schedule maintenance (in response to a complaint) */
+  scheduleMaintenance: (data) => apiClient.post('/fleet/maintenance', data),
+
+  /** Update maintenance schedule status */
+  updateMaintenanceStatus: (id, data) => apiClient.put(`/fleet/maintenance/${id}`, data),
+
+  // ─── Analytics ────────────────────────────────────────────────────
+  /** Get fleet analytics summary (all from real DB) */
   getFleetAnalytics: () => apiClient.get('/fleet/analytics'),
+
+  // ─── Fleet Charging ───────────────────────────────────────────────
+  /** Find nearby approved charging ports (pass lat/lng from geolocation) */
+  getNearbyPorts: (params) => apiClient.get('/fleet/charging/nearby-ports', { params }),
+
+  /** Create a fleet vehicle charging slot booking (status = pending) */
+  createFleetBooking: (data) => apiClient.post('/fleet/charging/bookings', data),
+
+  /** Get all fleet charging bookings for this manager */
+  getFleetBookings: () => apiClient.get('/fleet/charging/bookings'),
+
+  /** Get fleet charging session history */
+  getFleetChargingHistory: () => apiClient.get('/fleet/charging/history'),
 };
 
 export default fleetService;

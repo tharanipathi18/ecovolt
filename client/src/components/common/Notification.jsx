@@ -30,15 +30,15 @@ export default function Notification({
 
   const styleMap = {
     success: {
-      border: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-      iconColor: 'text-emerald-400',
+      border: 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm',
+      iconColor: 'text-emerald-700',
       icon: (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
       ),
     },
     warning: {
-      border: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-      iconColor: 'text-amber-400',
+      border: 'border-amber-200 bg-amber-50 text-amber-900 shadow-sm',
+      iconColor: 'text-amber-700',
       icon: (
         <path
           strokeLinecap="round"
@@ -49,15 +49,15 @@ export default function Notification({
       ),
     },
     error: {
-      border: 'border-red-500/30 bg-red-500/10 text-red-300',
-      iconColor: 'text-red-400',
+      border: 'border-rose-200 bg-rose-50 text-rose-900 shadow-sm',
+      iconColor: 'text-rose-700',
       icon: (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
       ),
     },
     info: {
-      border: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
-      iconColor: 'text-blue-400',
+      border: 'border-sky-200 bg-sky-50 text-sky-900 shadow-sm',
+      iconColor: 'text-sky-700',
       icon: (
         <path
           strokeLinecap="round"
@@ -73,14 +73,14 @@ export default function Notification({
 
   return (
     <div
-      className={`p-4 rounded-xl border backdrop-blur-md flex items-start gap-3 transition-all animate-fade-in ${currentStyle.border} ${className}`}
+      className={`p-4 rounded-xl border flex items-start gap-3 transition-all animate-fade-in ${currentStyle.border} ${className}`}
     >
       <svg className={`w-5 h-5 mt-0.5 shrink-0 ${currentStyle.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         {currentStyle.icon}
       </svg>
 
       <div className="flex-1 text-sm">
-        {title && <h5 className="font-semibold text-white mb-0.5">{title}</h5>}
+        {title && <h5 className="font-semibold text-slate-900 mb-0.5">{title}</h5>}
         {message && <p className="opacity-90">{message}</p>}
       </div>
 
@@ -90,7 +90,7 @@ export default function Notification({
             setIsVisible(false);
             onClose();
           }}
-          className="text-surface-400 hover:text-white transition-colors"
+          className="text-slate-400 hover:text-slate-700 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -100,3 +100,4 @@ export default function Notification({
     </div>
   );
 }
+
