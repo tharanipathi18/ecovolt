@@ -22,7 +22,7 @@ const apiClient = axios.create({
 // Attaches the stored JWT as a Bearer token to every outgoing request.
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('ecovolt_token');
+    const token = sessionStorage.getItem('ecovolt_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -50,7 +50,8 @@ apiClient.interceptors.response.use(
     // A 401 on /auth/login simply means "wrong credentials" — we show an
     // error banner. Redirecting to /login would create an infinite loop.
     if (response?.status === 401 && !isAuthRoute(config?.url)) {
-      localStorage.removeItem('ecovolt_token');
+      sessionStorage.removeItem('ecovolt_token');
+      sessionStorage.removeItem('ecovolt_user');
       window.location.href = '/login';
     }
 

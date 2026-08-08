@@ -2,11 +2,9 @@ import apiClient from './apiClient';
 
 /**
  * Authentication API Service.
- * Manages user registration, email/password login, Google OAuth integration, password reset flows, and profile fetching.
+ * Manages user registration, email/password login, password reset flows, and profile fetching.
  */
 const authService = {
-  /** Authenticate via Google OAuth profile */
-  googleAuth: (data) => apiClient.post('/auth/google', data),
 
   /** Register new user account */
   register: (userData) => apiClient.post('/auth/register', userData),

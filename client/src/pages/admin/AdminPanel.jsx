@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import adminService from '@services/adminService';
+import energyService from '@services/energyService';
 import {
   StatCard,
   Card,
@@ -17,17 +18,6 @@ import {
 
 /**
  * System Administration & Governance Module — Standalone Admin Portal.
- * Handles all 10 Admin management sections:
- *  1. Dashboard
- *  2. Users
- *  3. Station Requests
- *  4. Approved Stations
- *  5. Vehicles
- *  6. Bookings
- *  7. Charging Sessions
- *  8. Reports
- *  9. Notifications
- * 10. Settings
  */
 export default function AdminPanel() {
   const { user } = useAuth();
@@ -54,6 +44,7 @@ export default function AdminPanel() {
   const [bookings, setBookings] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [overview, setOverview] = useState(null);
+  const [tradingData, setTradingData] = useState(null);
 
   // System Settings State
   const [systemSettings, setSystemSettings] = useState({
@@ -84,37 +75,27 @@ export default function AdminPanel() {
   const loadAdminData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch System Overview
-      const oRes = await adminService.getOverview();
+      const [oRes, appRes, uRes, gRes, pRes, vRes, bRes, sRes, trRes] = await Promise.all([
+        adminService.getOverview(),
+        adminService.getPendingStationApplications(),
+        adminService.getUsers(),
+        adminService.getGenerators(),
+        adminService.getChargingPorts(),
+        adminService.getVehicles(),
+        adminService.getBookings(),
+        adminService.getSessions(),
+        energyService.getAdminTradingData(),
+      ]);
+
       setOverview(oRes.data?.stats || null);
-
-      // 2. Fetch Pending Station Applications
-      const appRes = await adminService.getPendingStationApplications();
       setPendingApplications(appRes.data?.applications || []);
-
-      // 3. Fetch Users
-      const uRes = await adminService.getUsers();
       setUsers(uRes.data?.users || []);
-
-      // 4. Fetch Generators
-      const gRes = await adminService.getGenerators();
       setGenerators(gRes.data?.generators || []);
-
-      // 5. Fetch Charging Ports
-      const pRes = await adminService.getChargingPorts();
       setPorts(pRes.data?.ports || []);
-
-      // 6. Fetch Vehicles
-      const vRes = await adminService.getVehicles();
       setVehicles(vRes.data?.vehicles || []);
-
-      // 7. Fetch Bookings
-      const bRes = await adminService.getBookings();
       setBookings(bRes.data?.bookings || []);
-
-      // 8. Fetch Sessions
-      const sRes = await adminService.getSessions();
       setSessions(sRes.data?.sessions || []);
+      setTradingData(trRes.data || null);
     } catch (err) {
       setNotification({
         type: 'error',
@@ -573,6 +554,72 @@ export default function AdminPanel() {
             <Badge variant="success">Sessions</Badge>
           </div>
           <Table columns={sessionColumns} data={sessions} emptyMessage="No charging sessions found." />
+        </section>
+      )}
+
+      {/* SECTION: Energy Trading */}
+      {activeTab === 'energy-trading' && (
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white tracking-tight">Energy Marketplace Governance &amp; Trading Telemetry</h2>
+            <Badge variant="success">Energy Ecosystem</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <StatCard
+              title="Marketplace Offers"
+              value={`${tradingData?.summary?.totalOffersCount || 0} Offers`}
+              change="Generators"
+              changeType="increase"
+              badgeText="Offers"
+              badgeVariant="primary"
+              icon={<span className="text-xl">⚡</span>}
+            />
+            <StatCard
+              title="Purchase Requests"
+              value={`${tradingData?.summary?.totalRequestsCount || 0} Requests`}
+              change="Port Owners"
+              changeType="increase"
+              badgeText="Requests"
+              badgeVariant="warning"
+              icon={<span className="text-xl">🛒</span>}
+            />
+            <StatCard
+              title="Energy Traded"
+              value={`${tradingData?.summary?.totalEnergyTradedKwh || 0} kWh`}
+              change="Clean Power Delivered"
+              changeType="increase"
+              badgeText="Volume"
+              badgeVariant="success"
+              icon={<span className="text-xl">🌱</span>}
+            />
+            <StatCard
+              title="Trading Volume Value"
+              value={`$${(tradingData?.summary?.totalValueTraded || 0).toFixed(2)}`}
+              change="Total Settlement"
+              changeType="increase"
+              badgeText="Value"
+              badgeVariant="info"
+              icon={<span className="text-xl">💰</span>}
+            />
+          </div>
+
+          <Card variant="glass" padding="normal" className="space-y-3">
+            <CardHeader title="Energy Purchase Requests &amp; Deliveries" subtitle="Real-time trading ledger between Generators and Port Owners" />
+            <Table
+              columns={[
+                { key: 'ref', title: 'Ref #', render: (r) => <span className="font-mono text-emerald-400 font-bold">{r.requestReference}</span> },
+                { key: 'gen', title: 'Generator', render: (r) => r.offer?.generator?.name || 'Generator' },
+                { key: 'port', title: 'Charging Port', render: (r) => r.chargingPort?.stationName || 'Hub' },
+                { key: 'kwh', title: 'Requested kWh', render: (r) => `${r.requestedKwh} kWh` },
+                { key: 'rate', title: 'Rate', render: (r) => `$${r.pricePerKwh} / kWh` },
+                { key: 'total', title: 'Total Amount', render: (r) => <span className="text-white font-extrabold">${r.totalCost?.toFixed(2)}</span> },
+                { key: 'status', title: 'Status', render: (r) => <Badge variant={r.status === 'accepted' ? 'success' : r.status === 'rejected' ? 'danger' : 'warning'} dot>{r.status.toUpperCase()}</Badge> },
+              ]}
+              data={tradingData?.requests || []}
+              emptyMessage="No energy purchase requests found."
+            />
+          </Card>
         </section>
       )}
 

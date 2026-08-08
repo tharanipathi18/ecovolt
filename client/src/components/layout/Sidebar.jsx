@@ -7,55 +7,53 @@ import { useAuth } from '@contexts/AuthContext';
  */
 export default function Sidebar({ isOpen, onClose }) {
   const { user } = useAuth();
+  const userRole = user?.role || 'ev_user';
 
-  const navItems = [
-    {
-      name: 'Overview',
-      path: '/dashboard',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      ),
-      roles: ['ev_user', 'admin'],
-    },
-    {
-      name: 'Renewable Generators',
-      path: '/energy',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      ),
-      roles: ['generator', 'admin', 'ev_user'],
-    },
-    {
-      name: 'EV Charging Ports',
-      path: '/charging',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-      roles: ['ev_port', 'admin', 'ev_user'],
-    },
-    {
-      name: 'Fleet Management',
-      path: '/fleet',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-        </svg>
-      ),
-      roles: ['fleet_manager', 'admin'],
-    },
+  const defaultRoleItems = [
+    { name: 'Overview', path: '/dashboard', icon: '📊' },
+    { name: 'EV Charging Ports', path: '/charging', icon: '⚡' },
+    { name: 'Renewable Energy', path: '/energy', icon: '🌱' },
+    { name: 'My Profile', path: '/profile', icon: '👤' },
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
 
-  // Filter routes based on user role
-  const userRole = user?.role || 'ev_user';
-  const visibleNavItems = navItems.filter((item) =>
-    item.roles.includes(userRole) || userRole === 'admin',
-  );
+  const roleNavMap = {
+    ev_user: [
+      { name: 'Overview', path: '/dashboard', icon: '📊' },
+      { name: 'Charging Ports', path: '/charging', icon: '⚡' },
+      { name: 'My Profile', path: '/profile', icon: '👤' },
+      { name: 'Settings', path: '/settings', icon: '⚙️' },
+    ],
+    fleet_manager: [
+      { name: 'Overview', path: '/fleet', icon: '📊' },
+      { name: 'Fleet Vehicles & Drivers', path: '/fleet?tab=fleet', icon: '🚚' },
+      { name: 'Fleet Charging', path: '/fleet?tab=charging', icon: '⚡' },
+      { name: 'Maintenance & Operations', path: '/fleet?tab=maintenance', icon: '🔧' },
+      { name: 'Fleet Analytics', path: '/fleet?tab=analytics', icon: '📈' },
+      { name: 'My Profile', path: '/profile', icon: '👤' },
+      { name: 'Settings', path: '/settings', icon: '⚙️' },
+    ],
+    ev_port: [
+      { name: 'Station Hub', path: '/charging', icon: '⚡' },
+      { name: 'My Profile', path: '/profile', icon: '👤' },
+      { name: 'Settings', path: '/settings', icon: '⚙️' },
+    ],
+    generator: [
+      { name: 'Renewable Power', path: '/energy', icon: '🌱' },
+      { name: 'My Profile', path: '/profile', icon: '👤' },
+      { name: 'Settings', path: '/settings', icon: '⚙️' },
+    ],
+    admin: [
+      { name: 'Overview', path: '/dashboard', icon: '📊' },
+      { name: 'Charging Ports', path: '/charging', icon: '⚡' },
+      { name: 'Generators', path: '/energy', icon: '🌱' },
+      { name: 'Fleet Management', path: '/fleet', icon: '🚚' },
+      { name: 'My Profile', path: '/profile', icon: '👤' },
+      { name: 'Settings', path: '/settings', icon: '⚙️' },
+    ],
+  };
+
+  const visibleNavItems = roleNavMap[userRole] || defaultRoleItems;
 
   return (
     <>

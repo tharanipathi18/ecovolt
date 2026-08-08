@@ -28,7 +28,7 @@ const app = express();
 app.use(helmet());
 
 const corsOptions = {
-  origin: config.corsOrigin,   // array — ['http://localhost:5173', 'http://localhost:5174']
+  origin: config.corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

@@ -89,6 +89,7 @@ model EnergyGenerator {
   operator         User                  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
   productionLogs   EnergyProductionLog[]
   transactions     EnergyTransaction[]
+  offers           EnergyOffer[]
   linkedPorts      ChargingPort[]        @relation("GeneratorToPort")
 
   @@map("energy_generators")
@@ -124,6 +125,7 @@ model ChargingPort {
   queues             ChargingQueue[]
   sessions           ChargingSession[]
   transactions       EnergyTransaction[]
+  purchaseRequests   EnergyPurchaseRequest[]
   maintenanceReports MaintenanceReport[]
   linkedGenerators   EnergyGenerator[]   @relation("GeneratorToPort")
 
@@ -204,8 +206,9 @@ model EnergyTransaction {
   status               String          @default("settled")
   timestamp            DateTime        @default(now())
   createdAt            DateTime        @default(now())
-  chargingPort         ChargingPort    @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
-  generator            EnergyGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  chargingPort         ChargingPort           @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  generator            EnergyGenerator        @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  purchaseRequest      EnergyPurchaseRequest?
 
   @@map("energy_transactions")
 }
@@ -372,4 +375,39 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model EnergyOffer {
+  id               String                  @id @default(uuid())
+  generatorId      String
+  energyAmountKwh  Float
+  availableKwh     Float
+  pricePerKwh      Float
+  minPurchaseKwh   Float                   @default(10)
+  status           String                  @default("active") // active, closed, cancelled
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  generator        EnergyGenerator         @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  purchaseRequests EnergyPurchaseRequest[]
+
+  @@map("energy_offers")
+}
+
+model EnergyPurchaseRequest {
+  id               String             @id @default(uuid())
+  requestReference String             @unique
+  offerId          String
+  chargingPortId   String
+  requestedKwh     Float
+  pricePerKwh      Float
+  totalCost        Float
+  status           String             @default("pending") // pending, accepted, rejected, completed
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  transactionId    String?            @unique
+  offer            EnergyOffer        @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  chargingPort     ChargingPort       @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  transaction      EnergyTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@map("energy_purchase_requests")
 }

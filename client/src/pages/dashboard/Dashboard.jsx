@@ -17,9 +17,9 @@ import {
 /**
  * Smart EV Companion — Complete EV User Dashboard with real API & DB persistence.
  */
-export default function Dashboard() {
+export default function Dashboard({ initialTab = 'companion' }) {
   const { user, setUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('companion'); // 'companion' | 'nearby' | 'history' | 'profile'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'companion' | 'nearby' | 'history' | 'profile'
   const [isRegisterVehicleModalOpen, setIsRegisterVehicleModalOpen] = useState(false);
   const [isBookSlotModalOpen, setIsBookSlotModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -511,7 +511,7 @@ export default function Dashboard() {
             </div>
           ) : nearbyStations.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 shadow-sm">
-              No charging stations available.
+              No charging stations are currently available.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -525,6 +525,10 @@ export default function Dashboard() {
 
                     <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
                       <div className="flex justify-between">
+                        <span className="text-slate-500">Location:</span>
+                        <span className="text-slate-900 font-semibold">{station.city || station.address || 'Station Hub'}</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-500">Port Code:</span>
                         <span className="text-emerald-800 font-mono font-bold">{station.portIdentifier || 'PORT-01'}</span>
                       </div>
@@ -533,8 +537,12 @@ export default function Dashboard() {
                         <span className="text-slate-900 font-medium uppercase">{station.connectorType}</span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-slate-500">Max Power:</span>
+                        <span className="text-slate-900 font-medium">{station.maxPowerOutputKw || 150} kW</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-500">Rate:</span>
-                        <span className="text-slate-900 font-semibold">${station.pricingRatePerKwh} / kWh</span>
+                        <span className="text-slate-900 font-semibold">${station.pricingRatePerKwh || station.ratePerKwh} / kWh</span>
                       </div>
                     </div>
                   </div>

@@ -126,10 +126,10 @@ function EmptyState({ icon, title, subtitle, action }) {
  *  7-9. Charging workflow (via bookings)
  *  10. Fleet Analytics (real DB data only)
  */
-export default function FleetManagement() {
+export default function FleetManagement({ initialTab = 'fleet' }) {
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('fleet');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [notification, setNotification] = useState(null);
 
   // ── Modal states ────────────────────────────────────────────────

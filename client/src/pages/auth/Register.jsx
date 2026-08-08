@@ -18,7 +18,7 @@ import { REGISTERABLE_ROLES } from '@utils/constants';
  *  6. Per-field inline error messages from react-hook-form shown below each input.
  */
 export default function Register() {
-  const { loginWithGoogle, clearError } = useAuth();
+  const { clearError } = useAuth();
   const navigate = useNavigate();
 
   // ── Local UI state ────────────────────────────────────────────────
@@ -95,67 +95,111 @@ export default function Register() {
   const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong'];
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-slate-50 relative overflow-hidden">
-      <div className="w-full max-w-lg relative z-10 animate-fade-in">
-        {/* ── Brand header ──────────────────────────────────────────── */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-block">
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-              <span className="gradient-text">Eco</span>
-              <span>Volt</span>
-            </h1>
-          </Link>
-          <p className="mt-2 text-slate-500 text-sm">
-            Join the renewable energy revolution
-          </p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 lg:p-8 relative overflow-hidden">
+      {/* Background Subtle Gradient Blobs */}
+      <div className="absolute top-10 left-10 w-96 h-96 bg-emerald-100/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-sky-100/40 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-5xl bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10 animate-fade-in">
+        {/* Left Column: Sustainability Brand & Illustration */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+          {/* Decorative Energy Shapes */}
+          <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div>
+            <Link to="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white font-black text-xl flex items-center justify-center shadow-inner">
+                ⚡
+              </div>
+              <span className="text-2xl font-extrabold tracking-tight text-white">
+                Eco<span className="text-emerald-300">Volt</span>
+              </span>
+            </Link>
+
+            <div className="mt-12 space-y-4">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold backdrop-blur-xs border border-white/10">
+                🌱 Clean Mobility Infrastructure
+              </span>
+              <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight">
+                Power a cleaner journey.
+              </h2>
+              <p className="text-emerald-100/80 text-sm leading-relaxed">
+                Connect your EV, discover clean charging, and manage your electric mobility in one ecosystem.
+              </p>
+            </div>
+          </div>
+
+          {/* Feature Highlights Grid */}
+          <div className="mt-12 pt-8 border-t border-white/10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-700/50 flex items-center justify-center text-sm text-emerald-200">
+                🔌
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">100% Real Charging Ports</p>
+                <p className="text-[11px] text-emerald-200/70">Verified, active stations across the grid</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-700/50 flex items-center justify-center text-sm text-emerald-200">
+                ☀️
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Solar &amp; Wind Coordination</p>
+                <p className="text-[11px] text-emerald-200/70">Charge during peak renewable production</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-[11px] text-emerald-200/60">
+            © {new Date().getFullYear()} EcoVolt. All rights reserved.
+          </div>
         </div>
 
-        {/* ── Card ──────────────────────────────────────────────────── */}
-        <div className="bg-white p-8 md:p-10 rounded-3xl border border-slate-200/80 shadow-sm">
+        {/* Right Column: Registration Form */}
+        <div className="lg:col-span-7 p-6 sm:p-8 lg:p-12 flex flex-col justify-center">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-900">Create your account</h2>
-            <p className="text-slate-500 text-sm mt-1">
-              Get started with EcoVolt in minutes
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create your account</h2>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              Select your role and enter your details to join EcoVolt
             </p>
           </div>
 
-          {/* ── Success banner ──────────────────────────────────────── */}
+          {/* Success Banner */}
           {successMessage && (
             <div
               id="register-success-banner"
               role="status"
-              className="mb-5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200
-                         text-emerald-800 text-sm flex items-start gap-3 animate-fade-in"
+              className="mb-5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-3 animate-fade-in"
             >
               <svg className="w-5 h-5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{successMessage}</span>
             </div>
           )}
 
-          {/* ── API error banner ─────────────────────────────────────── */}
+          {/* API Error Banner */}
           {apiError && (
             <div
               id="register-error-banner"
               role="alert"
-              className="mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200
-                         text-rose-700 text-sm flex items-start gap-3 animate-fade-in"
+              className="mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex items-start gap-3 animate-fade-in"
             >
               <svg className="w-5 h-5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{apiError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-            {/* ── Role selection ──────────────────────────────────── */}
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+            {/* Role selection */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">
-                I am a…
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                I am registering as…
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {REGISTERABLE_ROLES.map((role) => (
@@ -175,287 +219,142 @@ export default function Register() {
                     }`}>
                       {role.label}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{role.description}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{role.description}</p>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* ── Full Name ───────────────────────────────────────── */}
+            {/* Full Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="name" className="block text-xs font-semibold text-slate-700 mb-1">
                 Full Name
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <input
-                  id="name"
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Jane Doe"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={errors.name ? 'name-error' : undefined}
-                  className={`w-full pl-11 pr-4 py-3 bg-white border rounded-xl text-slate-900
-                    placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20
-                    focus:border-emerald-700 transition-all ${
-                    errors.name ? 'border-rose-400' : 'border-slate-200'
-                  }`}
-                  {...register('name', {
-                    required: 'Name is required',
-                  })}
-                />
-              </div>
-              {errors.name && (
-                <p id="name-error" className="mt-1.5 text-xs text-rose-600">
-                  {errors.name.message}
-                </p>
-              )}
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                placeholder="Jane Doe"
+                aria-invalid={!!errors.name}
+                className={`w-full px-4 py-2.5 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all ${
+                  errors.name ? 'border-rose-400' : 'border-slate-200'
+                }`}
+                {...register('name', { required: 'Full Name is required' })}
+              />
+              {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
             </div>
 
-            {/* ── Email ───────────────────────────────────────────── */}
+            {/* Email Address */}
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-1">
                 Email Address
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  aria-invalid={!!errors.email}
-                  aria-describedby={errors.email ? 'email-error' : undefined}
-                  className={`w-full pl-11 pr-4 py-3 bg-white border rounded-xl text-slate-900
-                    placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20
-                    focus:border-emerald-700 transition-all ${
-                    errors.email ? 'border-rose-400' : 'border-slate-200'
-                  }`}
-                  {...register('email', {
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: 'Please enter a valid email address',
-                    },
-                  })}
-                />
-              </div>
-              {errors.email && (
-                <p id="email-error" className="mt-1.5 text-xs text-rose-600">
-                  {errors.email.message}
-                </p>
-              )}
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                aria-invalid={!!errors.email}
+                className={`w-full px-4 py-2.5 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all ${
+                  errors.email ? 'border-rose-400' : 'border-slate-200'
+                }`}
+                {...register('email', {
+                  required: 'Email is required',
+                  pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email address' },
+                })}
+              />
+              {errors.email && <p className="mt-1 text-xs text-rose-600">{errors.email.message}</p>}
             </div>
 
-            {/* ── Password ────────────────────────────────────────── */}
-            <div>
-              <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
+            {/* Passwords grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Min 8 characters"
+                    className={`w-full px-4 py-2.5 pr-10 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all ${
+                      errors.password ? 'border-rose-400' : 'border-slate-200'
+                    }`}
+                    {...register('password', {
+                      required: 'Password is required',
+                      minLength: { value: 8, message: 'At least 8 chars required' },
+                    })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
                 </div>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  placeholder="Min 8 chars, 1 upper, 1 lower, 1 digit"
-                  aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
-                  className={`w-full pl-11 pr-12 py-3 bg-white border rounded-xl text-slate-900
-                    placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20
-                    focus:border-emerald-700 transition-all ${
-                    errors.password ? 'border-rose-400' : 'border-slate-200'
-                  }`}
-                  {...register('password', {
-                    required: 'Password is required',
-                    minLength: { value: 8, message: 'Password must be at least 8 characters' },
-                  })}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400
-                    hover:text-slate-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              {/* Password strength indicator */}
-              {password && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex gap-1 h-1">
-                    {[0, 1, 2, 3].map((idx) => (
-                      <div
-                        key={idx}
-                        className={`flex-1 rounded-full transition-all duration-300 ${
-                          idx < strengthScore ? strengthColors[strengthScore - 1] : 'bg-slate-200'
-                        }`}
-                      />
-                    ))}
+                {password && (
+                  <div className="mt-1 flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">Strength:</span>
+                    <span className="font-semibold text-slate-700">{strengthLabels[strengthScore - 1] || 'Weak'}</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 text-right">
-                    Strength: <span className="font-semibold text-slate-700">{strengthLabels[strengthScore - 1] || 'Weak'}</span>
-                  </p>
-                </div>
-              )}
-              {errors.password && (
-                <p id="password-error" className="mt-1.5 text-xs text-rose-600">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
+                )}
+                {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>}
+              </div>
 
-            {/* ── Confirm Password ─────────────────────────────────── */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
+              <div>
+                <label htmlFor="confirmPassword" className="block text-xs font-semibold text-slate-700 mb-1">
+                  Confirm Password
+                </label>
                 <input
                   id="confirmPassword"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="Re-enter your password"
-                  aria-invalid={!!errors.confirmPassword}
-                  aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
-                  className={`w-full pl-11 pr-4 py-3 bg-white border rounded-xl text-slate-900
-                    placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20
-                    focus:border-emerald-700 transition-all ${
+                  placeholder="Re-enter password"
+                  className={`w-full px-4 py-2.5 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all ${
                     errors.confirmPassword ? 'border-rose-400' : 'border-slate-200'
                   }`}
                   {...register('confirmPassword', {
-                    required: 'Please confirm your password',
+                    required: 'Please confirm password',
                     validate: (value) => value === password || 'Passwords do not match',
                   })}
                 />
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-xs text-rose-600">{errors.confirmPassword.message}</p>
+                )}
               </div>
-              {errors.confirmPassword && (
-                <p id="confirm-error" className="mt-1.5 text-xs text-rose-600">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
             </div>
 
-            {/* ── Submit button ─────────────────────────────────────── */}
+            {/* Submit Button */}
             <button
               id="register-submit-btn"
               type="submit"
               disabled={isSubmitting || !!successMessage}
-              className="w-full py-3.5 px-4 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl
-                shadow-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed
-                flex items-center justify-center gap-2 text-sm"
+              className="w-full py-3 px-4 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-2"
             >
               {isSubmitting ? (
                 <>
-                  <svg
-                    className="w-5 h-5 animate-spin text-white/70"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12" cy="12" r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                    />
-                  </svg>
-                  Creating account…
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Creating Account…</span>
                 </>
-              ) : successMessage ? (
-                'Redirecting to login…'
               ) : (
                 'Create Account'
               )}
             </button>
           </form>
 
-          {/* ── Social Login Divider & Google Button ───────────────── */}
-          <div className="my-6 flex items-center justify-between gap-3">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400 font-medium uppercase">Or continue with</span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const user = await loginWithGoogle();
-                if (user) {
-                  navigate('/dashboard', { replace: true });
-                }
-              } catch (err) {
-                console.error('Google registration failed:', err);
-              }
-            }}
-            className="w-full py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm flex items-center justify-center gap-3 transition-all shadow-2xs"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-            </svg>
-            <span>Continue with Google</span>
-          </button>
 
-          {/* ── Login link ──────────────────────────────────────────── */}
           <div className="mt-6 text-center">
-            <p className="text-slate-500 text-sm">
+            <p className="text-xs text-slate-500">
               Already have an account?{' '}
-              <Link
-                to="/login"
-                className="text-emerald-800 hover:text-emerald-900 font-bold transition-colors"
-              >
+              <Link to="/login" className="text-emerald-800 hover:text-emerald-900 font-bold transition-colors">
                 Sign in
               </Link>
             </p>
           </div>
         </div>
-
-        {/* ── Footer ──────────────────────────────────────────────── */}
-        <p className="mt-8 text-center text-surface-600 text-xs">
-          © {new Date().getFullYear()} EcoVolt. All rights reserved.
-        </p>
       </div>
     </div>
   );
