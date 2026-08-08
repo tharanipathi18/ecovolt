@@ -8,35 +8,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary — Electric Green (energy / sustainability)
+        // Primary — Deep Forest Green (Natural, Sustainable, Premium)
         primary: {
-          50:  '#edfff4',
-          100: '#d5ffe6',
-          200: '#aeffcf',
-          300: '#70ffab',
-          400: '#2bfd80',
-          500: '#00e65c',
-          600: '#00bf49',
-          700: '#00953c',
-          800: '#067533',
-          900: '#07602c',
-          950: '#003617',
+          50:  '#f2f8f5',
+          100: '#e1f0e8',
+          200: '#c4e2d3',
+          300: '#9bcdb6',
+          400: '#6cb293',
+          500: '#459674',
+          600: '#2d7a5b',
+          700: '#1b5e44',
+          800: '#164c38',
+          900: '#123f2f',
+          950: '#09231a',
         },
-        // Secondary — Electric Blue (technology / intelligence)
+        // Secondary — Natural Green / Emerald Tint
         secondary: {
-          50:  '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50:  '#f4f9f6',
+          100: '#e3f2ea',
+          200: '#c6e4d4',
+          300: '#9dd0b7',
+          400: '#6eb594',
+          500: '#4aa07a',
+          600: '#358160',
+          700: '#2a674d',
+          800: '#23523f',
+          900: '#1e4435',
+          950: '#0f261d',
         },
-        // Accent — Amber (alerts / energy / warmth)
+        // Accent — Sun Gold / Warm Amber (Energy highlights)
         accent: {
           50:  '#fffbeb',
           100: '#fef3c7',
@@ -50,7 +50,7 @@ export default {
           900: '#78350f',
           950: '#451a03',
         },
-        // Surface colors for dark mode
+        // Surface colors — Light Warm Slate & Charcoal text scale
         surface: {
           50:  '#f8fafc',
           100: '#f1f5f9',
@@ -70,10 +70,9 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'slide-down': 'slideDown 0.3s ease-out',
-        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+        'fade-in': 'fadeIn 0.25s ease-out',
+        'slide-up': 'slideUp 0.25s ease-out',
+        'slide-down': 'slideDown 0.25s ease-out',
       },
       keyframes: {
         fadeIn: {
@@ -81,25 +80,23 @@ export default {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '0%': { transform: 'translateY(6px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         slideDown: {
-          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '0%': { transform: 'translateY(-6px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
-        pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 5px rgba(0, 230, 92, 0.3)' },
-          '50%': { boxShadow: '0 0 20px rgba(0, 230, 92, 0.6)' },
-        },
+      },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+        'card-hover': '0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04)',
       },
       borderRadius: {
         '4xl': '2rem',
-      },
-      backdropBlur: {
-        xs: '2px',
       },
     },
   },
   plugins: [],
 };
+

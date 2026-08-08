@@ -24,7 +24,7 @@ const Select = forwardRef(function Select(
   return (
     <div className={`${fullWidth ? 'w-full' : ''} ${className}`}>
       {label && (
-        <label htmlFor={selectId} className="block text-sm font-medium text-surface-300 mb-1.5">
+        <label htmlFor={selectId} className="block text-sm font-medium text-slate-700 mb-1.5">
           {label}
         </label>
       )}
@@ -33,13 +33,13 @@ const Select = forwardRef(function Select(
         <select
           ref={ref}
           id={selectId}
-          className={`w-full py-2.5 pl-4 pr-10 bg-surface-800 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all appearance-none cursor-pointer ${
-            error ? 'border-red-500/60 focus:ring-red-500/30' : 'border-surface-700 hover:border-surface-600'
+          className={`w-full py-2.5 pl-4 pr-10 bg-white border rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all appearance-none cursor-pointer ${
+            error ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-200 hover:border-slate-300'
           }`}
           {...props}
         >
           {placeholder && (
-            <option value="" disabled className="bg-surface-800 text-surface-500">
+            <option value="" disabled className="bg-white text-slate-400">
               {placeholder}
             </option>
           )}
@@ -47,14 +47,14 @@ const Select = forwardRef(function Select(
             const value = typeof opt === 'object' ? opt.value : opt;
             const optionLabel = typeof opt === 'object' ? opt.label : opt;
             return (
-              <option key={value} value={value} className="bg-surface-800 text-white">
+              <option key={value} value={value} className="bg-white text-slate-900">
                 {optionLabel}
               </option>
             );
           })}
         </select>
 
-        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-surface-400">
+        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -62,12 +62,13 @@ const Select = forwardRef(function Select(
       </div>
 
       {error ? (
-        <p className="mt-1.5 text-xs text-red-400 font-medium">{error}</p>
+        <p className="mt-1.5 text-xs text-rose-600 font-medium">{error}</p>
       ) : helperText ? (
-        <p className="mt-1.5 text-xs text-surface-500">{helperText}</p>
+        <p className="mt-1.5 text-xs text-slate-500">{helperText}</p>
       ) : null}
     </div>
   );
 });
 
 export default Select;
+

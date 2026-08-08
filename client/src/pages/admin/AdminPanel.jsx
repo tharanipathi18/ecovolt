@@ -287,20 +287,20 @@ export default function AdminPanel() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-surface-900 via-primary-950 to-surface-900 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             🛡️
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 System Administration &amp; Governance
               </h1>
               <Badge variant="primary" dot pulse>Live Supabase DB</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Admin: <span className="text-white font-medium">{user?.name || 'Administrator'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Admin: <span className="text-slate-900 font-semibold">{user?.name || 'Administrator'}</span> •{' '}
               {users.length} Total Registered Accounts
             </p>
           </div>
@@ -352,13 +352,13 @@ export default function AdminPanel() {
       </div>
 
       {/* Navigation Tabs (All 10 Sections Supported) */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('dashboard')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'dashboard'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📊 Overview
@@ -367,8 +367,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('users')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'users'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           👥 Users ({users.length})
@@ -377,8 +377,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('applications')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'applications'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📋 Station Requests ({pendingApplications.length})
@@ -387,8 +387,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('ports')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'ports'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🔌 Approved Stations ({ports.length})
@@ -397,8 +397,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('vehicles')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'vehicles'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🚗 Vehicles ({vehicles.length})
@@ -407,8 +407,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('bookings')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'bookings'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🗓️ Bookings ({bookings.length})
@@ -417,8 +417,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('sessions')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'sessions'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ⚡ Charging Sessions ({sessions.length})
@@ -427,8 +427,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'reports'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📈 Reports
@@ -437,8 +437,8 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('notifications')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'notifications'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🔔 Notifications
@@ -447,13 +447,14 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'settings'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ⚙️ Settings
         </button>
       </div>
+
 
       {/* SECTION 1: Dashboard Overview */}
       {(activeTab === 'dashboard' || activeTab === 'overview') && (

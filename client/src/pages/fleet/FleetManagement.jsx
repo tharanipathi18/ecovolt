@@ -43,6 +43,28 @@ const PRIORITY_BADGE = {
   CRITICAL: { variant: 'danger',  label: 'CRITICAL' },
 };
 
+const BOOKING_STATUS_BADGE = {
+  pending:   { variant: 'warning', label: 'PENDING APPROVAL' },
+  confirmed: { variant: 'success', label: 'CONFIRMED' },
+  rejected:  { variant: 'danger',  label: 'REJECTED' },
+  completed: { variant: 'info',    label: 'COMPLETED' },
+  cancelled: { variant: 'neutral', label: 'CANCELLED' },
+};
+
+const SESSION_STATUS_BADGE = {
+  active:    { variant: 'info',    label: 'ACTIVE' },
+  completed: { variant: 'success', label: 'COMPLETED' },
+  failed:    { variant: 'danger',  label: 'FAILED' },
+};
+
+const CHARGE_DURATION_OPTIONS = [
+  { value: '30',  label: '30 minutes' },
+  { value: '45',  label: '45 minutes' },
+  { value: '60',  label: '1 hour' },
+  { value: '90',  label: '1.5 hours' },
+  { value: '120', label: '2 hours' },
+];
+
 const VEHICLE_TYPE_OPTIONS = [
   { value: 'car',   label: 'Car' },
   { value: 'van',   label: 'Van' },
@@ -130,6 +152,23 @@ export default function FleetManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Charging state ──────────────────────────────────────────────
+  const [chargeSubTab, setChargeSubTab] = useState('find');
+  const [nearbyPorts, setNearbyPorts] = useState([]);
+  const [fleetBookings, setFleetBookings] = useState([]);
+  const [chargingHistory, setChargingHistory] = useState([]);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isLoadingPorts, setIsLoadingPorts] = useState(false);
+  const [isLoadingChargeData, setIsLoadingChargeData] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [selectedVehicleForCharge, setSelectedVehicleForCharge] = useState('');
+  const [selectedPortForBooking, setSelectedPortForBooking] = useState(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [chargeBookingForm, setChargeBookingForm] = useState({
+    scheduledStartTime: '',
+    durationMinutes: '60',
+  });
+
   // ── Form states ─────────────────────────────────────────────────
   const [vehicleForm, setVehicleForm] = useState({
     registrationNumber: '',
@@ -204,6 +243,92 @@ export default function FleetManagement() {
   const hasVehicles = fleetVehicles.length > 0;
   const unassignedDrivers = drivers.filter(d => !d.assignedFleetVehicle);
   const openComplaints = complaints.filter(c => c.status === 'OPEN');
+
+  // ─── Handler: Load Fleet Charging Data ────────────────────────────────────
+  const loadFleetChargingData = useCallback(async () => {
+    setIsLoadingChargeData(true);
+    try {
+      const [bookRes, histRes] = await Promise.all([
+        fleetService.getFleetBookings(),
+        fleetService.getFleetChargingHistory(),
+      ]);
+      setFleetBookings(bookRes.data?.bookings || []);
+      setChargingHistory(histRes.data?.sessions || []);
+    } catch (_err) {
+      // silent — charging data is supplementary
+    } finally {
+      setIsLoadingChargeData(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'charging') loadFleetChargingData();
+  }, [activeTab, loadFleetChargingData]);
+
+  // ─── Handler: Get Location & Nearby Ports ────────────────────────────────
+  const handleGetLocation = () => {
+    setIsLocating(true);
+    setLocationError(null);
+    setNearbyPorts([]);
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      setIsLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          setIsLoadingPorts(true);
+          const res = await fleetService.getNearbyPorts({ lat: latitude, lng: longitude });
+          setNearbyPorts(res.data?.ports || []);
+          if ((res.data?.ports || []).length === 0) {
+            setLocationError('No approved charging stations are currently available in any location. Ask a station owner to get their station approved by admin.');
+          }
+        } catch (err) {
+          notify('error', 'Error', err.response?.data?.message || 'Could not fetch nearby ports.');
+        } finally {
+          setIsLoadingPorts(false);
+          setIsLocating(false);
+        }
+      },
+      () => {
+        setLocationError('Location access denied. Please enable location access in your browser settings and try again.');
+        setIsLocating(false);
+      },
+    );
+  };
+
+  // ─── Handler: Book Charging Slot ─────────────────────────────────────────
+  const handleBookCharging = async (e) => {
+    e.preventDefault();
+    if (!selectedVehicleForCharge || !selectedPortForBooking) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fleetService.createFleetBooking({
+        fleetVehicleId: selectedVehicleForCharge,
+        chargingPortId: selectedPortForBooking.id,
+        scheduledStartTime: chargeBookingForm.scheduledStartTime,
+        durationMinutes: parseInt(chargeBookingForm.durationMinutes, 10),
+      });
+      setShowBookingModal(false);
+      setSelectedPortForBooking(null);
+      setChargeBookingForm({ scheduledStartTime: '', durationMinutes: '60' });
+      notify(
+        'success',
+        '⚡ Booking Submitted!',
+        `Booking ${res.data.booking.bookingReference} is pending station owner approval.`,
+      );
+      loadFleetChargingData();
+      loadAll(); // refresh dashboard stats
+    } catch (err) {
+      notify('error', 'Booking Failed', err.response?.data?.message || err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // ─── Handler: Add Fleet Vehicle ────────────────────────────────────────────
   const handleAddVehicle = async (e) => {
@@ -364,28 +489,44 @@ export default function FleetManagement() {
         const count = row.complaints?.length || 0;
         return count > 0
           ? <Badge variant="danger">{count} Open</Badge>
-          : <span className="text-surface-500 text-xs">None</span>;
+          : <span className="text-slate-400 text-xs">None</span>;
       },
+    },
+    {
+      key: 'actions', title: 'Actions',
+      render: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelectedVehicleForCharge(row.id);
+            setActiveTab('charging');
+            setChargingSubTab('find');
+          }}
+        >
+          ⚡ Charge Vehicle
+        </Button>
+      ),
     },
   ];
 
   const driverColumns = [
     { key: 'name', title: 'Driver Name', render: (row) => row.user?.name || '—' },
-    { key: 'email', title: 'Email', render: (row) => <span className="text-surface-400 text-xs">{row.user?.email}</span> },
-    { key: 'license', title: 'License #', render: (row) => <span className="font-mono text-primary-400">{row.licenseNumber}</span> },
+    { key: 'email', title: 'Email', render: (row) => <span className="text-slate-500 text-xs">{row.user?.email}</span> },
+    { key: 'license', title: 'License #', render: (row) => <span className="font-mono text-emerald-800 font-bold">{row.licenseNumber}</span> },
     {
       key: 'expiry', title: 'License Expiry',
       render: (row) => {
         const d = new Date(row.licenseExpirationDate);
         const isExpired = d < new Date();
-        return <span className={isExpired ? 'text-red-400 font-bold' : 'text-surface-300'}>{d.toLocaleDateString()}</span>;
+        return <span className={isExpired ? 'text-rose-600 font-bold' : 'text-slate-700'}>{d.toLocaleDateString()}</span>;
       },
     },
     {
       key: 'vehicle', title: 'Assigned Vehicle',
       render: (row) => row.assignedFleetVehicle
-        ? <span className="font-mono text-secondary-400">{row.assignedFleetVehicle.registrationNumber}</span>
-        : <span className="text-surface-500 italic text-xs">Unassigned</span>,
+        ? <span className="font-mono text-emerald-800 font-bold">{row.assignedFleetVehicle.registrationNumber}</span>
+        : <span className="text-slate-400 italic text-xs">Unassigned</span>,
     },
     {
       key: 'status', title: 'Status',
@@ -398,9 +539,9 @@ export default function FleetManagement() {
   ];
 
   const complaintColumns = [
-    { key: 'vehicle', title: 'Vehicle', render: (row) => <span className="font-mono text-secondary-400 font-bold">{row.fleetVehicle?.registrationNumber}</span> },
+    { key: 'vehicle', title: 'Vehicle', render: (row) => <span className="font-mono text-emerald-800 font-bold">{row.fleetVehicle?.registrationNumber}</span> },
     { key: 'driver', title: 'Driver', render: (row) => row.driver?.user?.name || '—' },
-    { key: 'title', title: 'Complaint', render: (row) => <span className="font-medium text-white">{row.title}</span> },
+    { key: 'title', title: 'Complaint', render: (row) => <span className="font-medium text-slate-900">{row.title}</span> },
     { key: 'category', title: 'Category', render: (row) => row.category },
     {
       key: 'priority', title: 'Priority',
@@ -427,14 +568,14 @@ export default function FleetManagement() {
           🔧 Schedule Maintenance
         </Button>
       ) : (
-        <span className="text-surface-500 text-xs">{row.maintenanceSchedule ? 'Maintenance Scheduled' : '—'}</span>
+        <span className="text-slate-400 text-xs">{row.maintenanceSchedule ? 'Maintenance Scheduled' : '—'}</span>
       ),
     },
   ];
 
   const maintenanceColumns = [
-    { key: 'vehicle', title: 'Vehicle', render: (row) => <span className="font-mono text-secondary-400 font-bold">{row.fleetVehicle?.registrationNumber}</span> },
-    { key: 'complaint', title: 'Complaint', render: (row) => row.complaint?.title || <span className="italic text-surface-500 text-xs">Direct Schedule</span> },
+    { key: 'vehicle', title: 'Vehicle', render: (row) => <span className="font-mono text-emerald-800 font-bold">{row.fleetVehicle?.registrationNumber}</span> },
+    { key: 'complaint', title: 'Complaint', render: (row) => row.complaint?.title || <span className="italic text-slate-400 text-xs">Direct Schedule</span> },
     { key: 'mechanic', title: 'Mechanic', render: (row) => row.mechanic },
     { key: 'workshop', title: 'Workshop', render: (row) => row.workshop },
     { key: 'date', title: 'Scheduled Date', render: (row) => new Date(row.maintenanceDate).toLocaleDateString() },
@@ -463,7 +604,7 @@ export default function FleetManagement() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const vehicleFirstBanner = !hasVehicles && (
-    <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm font-medium">
+    <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-medium">
       <span className="text-2xl">⚠️</span>
       <span>
         <strong>No fleet vehicles registered yet.</strong> Please add a vehicle first.
@@ -487,20 +628,20 @@ export default function FleetManagement() {
       )}
 
       {/* ── Top Banner ──────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-primary-950 via-surface-800 to-secondary-950 border border-primary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             🚗
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Fleet Management
               </h1>
               <Badge variant="primary" dot pulse>Live Supabase DB</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Manager: <span className="text-white font-medium">{user?.name || 'Fleet Manager'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Manager: <span className="text-slate-900 font-semibold">{user?.name || 'Fleet Manager'}</span> •{' '}
               {fleetVehicles.length} Vehicles • {drivers.length} Drivers
             </p>
           </div>
@@ -628,34 +769,66 @@ export default function FleetManagement() {
           badgeVariant="danger"
           icon={<span className="text-xl">🚫</span>}
         />
+        <StatCard
+          title="Pending Charging"
+          value={`${analytics?.pendingChargingCount ?? 0}`}
+          change="Awaiting approval"
+          changeType="neutral"
+          periodText="charging requests"
+          badgeText="Charging"
+          badgeVariant="warning"
+          icon={<span className="text-xl">⏳</span>}
+        />
+        <StatCard
+          title="Sessions Done"
+          value={`${analytics?.completedChargingCount ?? 0}`}
+          change="Fleet sessions"
+          changeType="increase"
+          periodText="completed sessions"
+          badgeText="History"
+          badgeVariant="success"
+          icon={<span className="text-xl">✅</span>}
+        />
+        <StatCard
+          title="Charging Spend"
+          value={`$${(analytics?.totalChargingCost ?? 0).toFixed(2)}`}
+          change="Total charging cost"
+          changeType="neutral"
+          periodText="all fleet sessions"
+          badgeText="Cost"
+          badgeVariant="info"
+          icon={<span className="text-xl">⚡</span>}
+        />
       </div>
 
       {/* ── Navigation Tabs ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {[
           { id: 'fleet',       label: `🚗 Fleet Vehicles (${fleetVehicles.length})` },
           { id: 'drivers',     label: `👤 Drivers (${drivers.length})` },
           { id: 'complaints',  label: `📋 Complaints (${complaints.length})`, badge: openComplaints.length > 0 ? openComplaints.length : null },
           { id: 'maintenance', label: `🔧 Maintenance (${maintenanceSchedules.length})` },
+          { id: 'charging',    label: `⚡ Charging`, badge: (analytics?.pendingChargingCount ?? 0) > 0 ? analytics.pendingChargingCount : null },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`relative px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
               activeTab === tab.id
-                ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-                : 'text-surface-400 hover:text-white'
+                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             {tab.label}
             {tab.badge && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full">
+              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 bg-rose-600 text-white text-[10px] font-bold rounded-full">
                 {tab.badge}
               </span>
             )}
           </button>
         ))}
       </div>
+
 
       {/* ── TAB 1: Fleet Vehicles ────────────────────────────────────────── */}
       {activeTab === 'fleet' && (
@@ -771,11 +944,321 @@ export default function FleetManagement() {
         </section>
       )}
 
+      {/* ── TAB 5: Charging ───────────────────────────────────────────────── */}
+      {activeTab === 'charging' && (
+        <section className="space-y-5">
+          {/* Sub-tabs */}
+          <div className="flex items-center gap-2 border-b border-surface-700/50 pb-2">
+            {[
+              { id: 'find',     label: '🔍 Find & Book' },
+              { id: 'requests', label: `📋 Booking Requests (${fleetBookings.length})` },
+              { id: 'history',  label: `📊 Charging History (${chargingHistory.length})` },
+            ].map(st => (
+              <button
+                key={st.id}
+                onClick={() => setChargeSubTab(st.id)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+                  chargeSubTab === st.id
+                    ? 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
+                    : 'text-surface-400 hover:text-white hover:bg-surface-800'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ─ Sub-tab: Find & Book ─────────────────────────────────────── */}
+          {chargeSubTab === 'find' && (
+            <div className="space-y-5">
+              {!hasVehicles ? (
+                <EmptyState
+                  icon="🚗"
+                  title="No fleet vehicles registered."
+                  subtitle="Register at least one fleet vehicle to start booking charging slots."
+                  action={<Button variant="primary" onClick={() => setActiveTab('fleet')}>Go to Fleet Vehicles</Button>}
+                />
+              ) : (
+                <>
+                  {/* Vehicle selector + location button */}
+                  <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-1">
+                      <Select
+                        label="Select Fleet Vehicle"
+                        value={selectedVehicleForCharge}
+                        onChange={e => setSelectedVehicleForCharge(e.target.value)}
+                        placeholder="Choose a vehicle..."
+                        options={fleetVehicles.map(v => ({
+                          value: v.id,
+                          label: `${v.registrationNumber} — ${v.make} ${v.model}`,
+                        }))}
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={handleGetLocation}
+                      disabled={!selectedVehicleForCharge || isLocating || isLoadingPorts}
+                    >
+                      {isLocating ? '📍 Locating...' : isLoadingPorts ? '⏳ Loading...' : '📍 Find Nearby Chargers'}
+                    </Button>
+                  </div>
+
+                  {/* Location error */}
+                  {locationError && (
+                    <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                      <span className="text-red-400 text-xl mt-0.5">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-red-300 text-sm">{locationError}</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleGetLocation}>Retry</Button>
+                    </div>
+                  )}
+
+                  {/* Loading spinner */}
+                  {isLoadingPorts && (
+                    <div className="flex items-center justify-center gap-3 py-12 text-surface-400">
+                      <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                      <span>Fetching nearby charging stations...</span>
+                    </div>
+                  )}
+
+                  {/* Ports grid */}
+                  {!isLoadingPorts && nearbyPorts.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {nearbyPorts.map(port => (
+                        <div
+                          key={port.id}
+                          className="bg-surface-800 border border-surface-700 rounded-2xl p-5 space-y-3 hover:border-primary-500/40 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-white text-sm leading-tight">{port.stationName}</p>
+                              <p className="text-xs text-surface-400 mt-0.5 font-mono">{port.portIdentifier}</p>
+                            </div>
+                            <Badge
+                              variant={port.status === 'available' ? 'success' : port.status === 'occupied' ? 'danger' : 'warning'}
+                              dot
+                            >
+                              {port.status.toUpperCase()}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div>
+                              <span className="text-surface-500">Connector</span>
+                              <p className="text-white font-medium capitalize">{port.connectorType?.replace(/_/g, ' ')}</p>
+                            </div>
+                            <div>
+                              <span className="text-surface-500">Power</span>
+                              <p className="text-white font-medium">{port.maxPowerOutputKw} kW</p>
+                            </div>
+                            <div>
+                              <span className="text-surface-500">Rate</span>
+                              <p className="text-primary-400 font-bold">${port.pricingRatePerKwh}/kWh</p>
+                            </div>
+                            {port.distanceKm !== null && port.distanceKm !== undefined && (
+                              <div>
+                                <span className="text-surface-500">Distance</span>
+                                <p className="text-white font-medium">{port.distanceKm} km</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {port.locationAddress && (
+                            <p className="text-xs text-surface-500 truncate">📍 {port.locationAddress}{port.locationCity ? `, ${port.locationCity}` : ''}</p>
+                          )}
+
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="w-full"
+                            disabled={port.status === 'occupied'}
+                            onClick={() => {
+                              setSelectedPortForBooking(port);
+                              setShowBookingModal(true);
+                            }}
+                          >
+                            {port.status === 'occupied' ? '🔴 Port Busy' : '⚡ Book Charging Slot'}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty — no ports loaded yet */}
+                  {!isLoadingPorts && nearbyPorts.length === 0 && !locationError && (
+                    <div className="py-16 text-center border border-surface-700 rounded-2xl bg-surface-800">
+                      <div className="text-5xl mb-4">📍</div>
+                      <h3 className="text-lg font-bold text-white mb-1">Find Charging Stations</h3>
+                      <p className="text-surface-400 text-sm max-w-sm mx-auto">
+                        Select a fleet vehicle and click <strong>"Find Nearby Chargers"</strong> to discover approved charging stations near your location.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ─ Sub-tab: Booking Requests ─────────────────────────────────── */}
+          {chargeSubTab === 'requests' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white">Fleet Charging Bookings</h3>
+                <Button variant="outline" size="sm" onClick={loadFleetChargingData} disabled={isLoadingChargeData}>
+                  {isLoadingChargeData ? '⏳ Refreshing...' : '🔄 Refresh'}
+                </Button>
+              </div>
+              {isLoadingChargeData ? (
+                <div className="flex items-center justify-center gap-3 py-12 text-surface-400">
+                  <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading bookings...</span>
+                </div>
+              ) : fleetBookings.length === 0 ? (
+                <EmptyState
+                  icon="📋"
+                  title="No charging requests yet."
+                  subtitle="Book a charging slot for your fleet vehicle from the 'Find & Book' tab. Bookings pending station owner approval will appear here."
+                />
+              ) : (
+                <Table
+                  columns={[
+                    { key: 'ref',     title: 'Booking Ref',  render: r => <span className="font-mono text-primary-400 font-bold text-xs">{r.bookingReference}</span> },
+                    { key: 'vehicle', title: 'Vehicle',      render: r => <span className="font-mono text-secondary-400 text-xs">{r.fleetVehicle?.registrationNumber || '—'}</span> },
+                    { key: 'station', title: 'Station',      render: r => <span className="text-xs">{r.chargingPort?.stationName || '—'}</span> },
+                    { key: 'port',    title: 'Port',         render: r => <span className="text-xs font-mono text-surface-400">{r.chargingPort?.portIdentifier || '—'}</span> },
+                    { key: 'time',    title: 'Scheduled',    render: r => <span className="text-xs">{new Date(r.scheduledStartTime).toLocaleString()}</span> },
+                    { key: 'dur',     title: 'Duration',     render: r => <span className="text-xs">{r.durationMinutes} min</span> },
+                    { key: 'cost',    title: 'Est. Cost',    render: r => <span className="text-xs text-primary-300">${r.estimatedCost?.toFixed(2)}</span> },
+                    { key: 'status',  title: 'Status',       render: r => { const s = BOOKING_STATUS_BADGE[r.status] || { variant: 'info', label: r.status }; return <Badge variant={s.variant} dot>{s.label}</Badge>; } },
+                  ]}
+                  data={fleetBookings}
+                  emptyMessage="No booking requests found."
+                />
+              )}
+            </div>
+          )}
+
+          {/* ─ Sub-tab: Charging History ─────────────────────────────────── */}
+          {chargeSubTab === 'history' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white">Fleet Charging Session History</h3>
+                <Badge variant="success">Completed Sessions</Badge>
+              </div>
+              {isLoadingChargeData ? (
+                <div className="flex items-center justify-center gap-3 py-12 text-surface-400">
+                  <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading history...</span>
+                </div>
+              ) : chargingHistory.length === 0 ? (
+                <EmptyState
+                  icon="📊"
+                  title="No charging history yet."
+                  subtitle="When a station owner starts a charging session for one of your fleet vehicles, the session details and cost will appear here."
+                />
+              ) : (
+                <Table
+                  columns={[
+                    { key: 'vehicle', title: 'Reg. No.',     render: r => <span className="font-mono text-secondary-400 text-xs">{r.fleetVehicle?.registrationNumber || '—'}</span> },
+                    { key: 'make',    title: 'Vehicle',      render: r => <span className="text-xs">{r.fleetVehicle ? `${r.fleetVehicle.make} ${r.fleetVehicle.model}` : '—'}</span> },
+                    { key: 'station', title: 'Station',      render: r => <span className="text-xs">{r.chargingPort?.stationName || '—'}</span> },
+                    { key: 'start',   title: 'Start',        render: r => <span className="text-xs">{new Date(r.startTime).toLocaleString()}</span> },
+                    { key: 'end',     title: 'End',          render: r => r.endTime ? <span className="text-xs">{new Date(r.endTime).toLocaleString()}</span> : <span className="text-xs text-blue-400">Active</span> },
+                    { key: 'energy',  title: 'Energy',       render: r => <span className="text-xs">{r.energyConsumedKwh} kWh</span> },
+                    { key: 'cost',    title: 'Cost',         render: r => <span className="text-xs text-primary-300 font-bold">${r.cost?.toFixed(2)}</span> },
+                    { key: 'status',  title: 'Status',       render: r => { const s = SESSION_STATUS_BADGE[r.status] || { variant: 'info', label: r.status }; return <Badge variant={s.variant} dot>{s.label}</Badge>; } },
+                  ]}
+                  data={chargingHistory}
+                  emptyMessage="No charging history found."
+                />
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* MODALS                                                            */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
 
+      {/* MODAL 0: Fleet Charging Booking ────────────────────────────────── */}
+      <Modal
+        isOpen={showBookingModal}
+        onClose={() => { setShowBookingModal(false); setSelectedPortForBooking(null); }}
+        title="⚡ Book Charging Slot"
+        subtitle="Reserve a charging slot for your fleet vehicle. The station owner must approve before the session starts."
+      >
+        <form onSubmit={handleBookCharging} className="space-y-4 py-2">
+          {/* Fleet vehicle info */}
+          <div className="p-3 bg-surface-700/50 border border-surface-600 rounded-xl space-y-0.5">
+            <p className="text-xs text-surface-400 font-medium uppercase tracking-wide">Fleet Vehicle</p>
+            <p className="text-white font-semibold text-sm">
+              {(() => {
+                const v = fleetVehicles.find(v => v.id === selectedVehicleForCharge);
+                return v ? `${v.registrationNumber} — ${v.make} ${v.model}` : '—';
+              })()}
+            </p>
+          </div>
+
+          {/* Port info */}
+          {selectedPortForBooking && (
+            <div className="p-3 bg-surface-700/50 border border-surface-600 rounded-xl space-y-1">
+              <p className="text-xs text-surface-400 font-medium uppercase tracking-wide">Charging Station</p>
+              <p className="text-white font-semibold text-sm">{selectedPortForBooking.stationName}</p>
+              <div className="flex items-center gap-3 text-xs text-surface-400">
+                <span className="font-mono">{selectedPortForBooking.portIdentifier}</span>
+                <span>•</span>
+                <span>{selectedPortForBooking.connectorType?.replace(/_/g, ' ')}</span>
+                <span>•</span>
+                <span className="text-primary-400 font-bold">${selectedPortForBooking.pricingRatePerKwh}/kWh</span>
+              </div>
+            </div>
+          )}
+
+          <Input
+            label="Scheduled Start Time *"
+            type="datetime-local"
+            required
+            value={chargeBookingForm.scheduledStartTime}
+            onChange={e => setChargeBookingForm({ ...chargeBookingForm, scheduledStartTime: e.target.value })}
+            min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+          />
+
+          <Select
+            label="Charging Duration"
+            value={chargeBookingForm.durationMinutes}
+            onChange={e => setChargeBookingForm({ ...chargeBookingForm, durationMinutes: e.target.value })}
+            options={CHARGE_DURATION_OPTIONS}
+          />
+
+          {/* Estimated cost preview */}
+          {selectedPortForBooking && chargeBookingForm.durationMinutes && (
+            <div className="p-3 bg-primary-500/5 border border-primary-500/20 rounded-xl flex items-center justify-between">
+              <span className="text-surface-400 text-xs">Estimated Cost</span>
+              <span className="text-primary-300 font-bold text-sm">
+                ${(selectedPortForBooking.maxPowerOutputKw * (parseInt(chargeBookingForm.durationMinutes) / 60) * 0.8 * selectedPortForBooking.pricingRatePerKwh).toFixed(2)}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-700/50">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => { setShowBookingModal(false); setSelectedPortForBooking(null); }}
+            >
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={isSubmitting || !chargeBookingForm.scheduledStartTime}>
+              {isSubmitting ? '⏳ Booking...' : '⚡ Submit Booking Request'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* MODAL 1: Add Fleet Vehicle ──────────────────────────────────────── */}
+
       <Modal
         isOpen={showAddVehicle}
         onClose={() => setShowAddVehicle(false)}

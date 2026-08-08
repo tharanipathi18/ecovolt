@@ -2,7 +2,7 @@ import apiClient from './apiClient';
 
 /**
  * Fleet Management API service.
- * Handles fleet vehicle registration, driver management, complaints, maintenance scheduling, and analytics.
+ * Handles fleet vehicle registration, driver management, complaints, maintenance scheduling, analytics, and charging.
  */
 const fleetService = {
   // ─── Consolidated Dashboard ──────────────────────────────────────
@@ -55,6 +55,19 @@ const fleetService = {
   // ─── Analytics ────────────────────────────────────────────────────
   /** Get fleet analytics summary (all from real DB) */
   getFleetAnalytics: () => apiClient.get('/fleet/analytics'),
+
+  // ─── Fleet Charging ───────────────────────────────────────────────
+  /** Find nearby approved charging ports (pass lat/lng from geolocation) */
+  getNearbyPorts: (params) => apiClient.get('/fleet/charging/nearby-ports', { params }),
+
+  /** Create a fleet vehicle charging slot booking (status = pending) */
+  createFleetBooking: (data) => apiClient.post('/fleet/charging/bookings', data),
+
+  /** Get all fleet charging bookings for this manager */
+  getFleetBookings: () => apiClient.get('/fleet/charging/bookings'),
+
+  /** Get fleet charging session history */
+  getFleetChargingHistory: () => apiClient.get('/fleet/charging/history'),
 };
 
 export default fleetService;

@@ -45,26 +45,23 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Glow Overlay */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 animate-fade-in">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-primary-500/10 border border-primary-500/30 text-primary-400 flex items-center justify-center text-3xl mx-auto shadow-xl">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl mx-auto shadow-2xs">
             🛡️
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
             System Administration
           </h1>
-          <p className="text-surface-400 text-xs md:text-sm">
+          <p className="text-slate-500 text-xs md:text-sm">
             EcoVolt Governance Portal &amp; Management Interface
           </p>
         </div>
 
-        <div className="mt-8 glass-card p-8 rounded-3xl border border-surface-700/80 shadow-2xl space-y-6">
+        <div className="mt-8 bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
           {adminError && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-medium flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
               <span>⚠️</span>
               <span>{adminError}</span>
             </div>
@@ -72,7 +69,7 @@ export default function AdminLogin() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-surface-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Administrator Email
               </label>
               <input
@@ -82,15 +79,15 @@ export default function AdminLogin() {
                   pattern: { value: /^\S+@\S+$/i, message: 'Invalid email format' },
                 })}
                 placeholder="admin@ecovolt.com"
-                className="w-full px-4 py-3 rounded-xl bg-surface-900 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all"
               />
               {errors.email && (
-                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+                <p className="mt-1 text-xs text-rose-600">{errors.email.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-surface-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Password
               </label>
               <div className="relative">
@@ -98,25 +95,25 @@ export default function AdminLogin() {
                   type={showPassword ? 'text' : 'password'}
                   {...register('password', { required: 'Password is required' })}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 rounded-xl bg-surface-900 border border-surface-700 text-white placeholder-surface-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition-all pr-10"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-white text-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium"
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+                <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>
               )}
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+              className="w-full py-3.5 px-4 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
             >
               {isSubmitting ? (
                 <>
@@ -129,8 +126,8 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <div className="pt-4 border-t border-surface-700/50 text-center">
-            <p className="text-[11px] text-surface-500">
+          <div className="pt-4 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-400">
               Authorized access only. All system actions are logged and audited.
             </p>
           </div>
@@ -139,3 +136,4 @@ export default function AdminLogin() {
     </div>
   );
 }
+

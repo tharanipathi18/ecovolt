@@ -502,6 +502,39 @@ export const getFleetDashboard = async (managerId, role) => {
     schedules.reduce((acc, s) => acc + (s.actualCost || s.estimatedCost || 0), 0).toFixed(2),
   );
 
+  // ── Charging stats: 2 additional queries keyed on fleet vehicles already loaded ──
+  const vehicleIds = fleetVehicles.map((v) => v.id);
+
+  let pendingChargingCount = 0;
+  let completedChargingCount = 0;
+  let totalChargingCost = 0;
+
+  if (vehicleIds.length > 0 || role === 'admin') {
+    const chargingBookingWhere =
+      role === 'admin'
+        ? { fleetVehicleId: { not: null }, status: 'pending' }
+        : { userId: managerId, fleetVehicleId: { not: null }, status: 'pending' };
+
+    const chargingSessionWhere =
+      role === 'admin'
+        ? { fleetVehicleId: { not: null } }
+        : { fleetVehicleId: { in: vehicleIds } };
+
+    const [pendingCount, fleetSessions] = await Promise.all([
+      prisma.booking.count({ where: chargingBookingWhere }),
+      prisma.chargingSession.findMany({
+        where: chargingSessionWhere,
+        select: { cost: true, status: true },
+      }),
+    ]);
+
+    pendingChargingCount = pendingCount;
+    completedChargingCount = fleetSessions.filter((s) => s.status === 'completed').length;
+    totalChargingCost = Number(
+      fleetSessions.reduce((acc, s) => acc + (s.cost || 0), 0).toFixed(2),
+    );
+  }
+
   return {
     fleetVehicles,
     drivers,
@@ -516,6 +549,9 @@ export const getFleetDashboard = async (managerId, role) => {
       assignedDriversCount,
       pendingComplaintsCount,
       totalMaintenanceCost,
+      pendingChargingCount,
+      completedChargingCount,
+      totalChargingCost,
     },
   };
 };
@@ -578,9 +614,234 @@ export const updateChargingSchedule = async (fleetVehicleId, data) => {
   return prisma.fleetVehicle.update({
     where: { id: fleetVehicleId },
     data: {
-      chargingPriority:        data.chargingPriority || fv.chargingPriority,
+    chargingPriority:        data.chargingPriority || fv.chargingPriority,
       preferredChargeStartTime: data.preferredChargeStartTime || fv.preferredChargeStartTime,
       targetStateOfCharge:     data.targetStateOfCharge || fv.targetStateOfCharge,
     },
   });
 };
+
+// ─── Fleet Charging ─────────────────────────────────────────────────────────
+
+/**
+ * Haversine distance calculation (returns km).
+ */
+const calcDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Number((R * c).toFixed(1));
+};
+
+/**
+ * Find nearby approved charging ports for a fleet manager.
+ * Returns all APPROVED, public ports — optionally sorted by distance.
+ */
+export const getNearbyPortsForFleet = async (_managerId, lat, lng) => {
+  const ports = await prisma.chargingPort.findMany({
+    where: {
+      isApproved: true,
+      approvalStatus: 'APPROVED',
+      isPublic: true,
+      status: { in: ['available', 'occupied', 'reserved'] },
+    },
+    include: {
+      operator: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (lat && lng) {
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    const portsWithDist = ports.map((p) => ({
+      ...p,
+      distanceKm:
+        p.latitude && p.longitude
+          ? calcDistanceKm(parsedLat, parsedLng, p.latitude, p.longitude)
+          : null,
+    }));
+    return portsWithDist.sort((a, b) => {
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm;
+    });
+  }
+
+  return ports;
+};
+
+/**
+ * Create a fleet charging slot booking (status = pending, awaiting station owner approval).
+ */
+export const createFleetBooking = async (managerId, data) => {
+  const { fleetVehicleId, chargingPortId, scheduledStartTime, durationMinutes } = data;
+
+  // Verify fleet vehicle belongs to this manager
+  const fleetVehicle = await prisma.fleetVehicle.findFirst({
+    where: { id: fleetVehicleId, managerId },
+  });
+  if (!fleetVehicle) {
+    const error = new Error('Fleet vehicle not found or not authorized');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify charging port exists and is approved
+  const port = await prisma.chargingPort.findUnique({ where: { id: chargingPortId } });
+  if (!port) {
+    const error = new Error('Charging port not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (!port.isApproved || port.approvalStatus !== 'APPROVED') {
+    const error = new Error('Charging station has not been approved for public bookings yet');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const requestedStart = new Date(scheduledStartTime);
+  if (isNaN(requestedStart.getTime())) {
+    const error = new Error('Invalid scheduled start time');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const duration = durationMinutes ? parseInt(durationMinutes, 10) : 60;
+  const requestedEnd = new Date(requestedStart.getTime() + duration * 60 * 1000);
+
+  // Double-booking check
+  const existingBookings = await prisma.booking.findMany({
+    where: { chargingPortId, status: { in: ['confirmed', 'pending'] } },
+  });
+
+  const isDoubleBooked = existingBookings.some((existing) => {
+    const existingStart = new Date(existing.scheduledStartTime);
+    const existingEnd = new Date(
+      existingStart.getTime() + existing.durationMinutes * 60 * 1000,
+    );
+    return requestedStart < existingEnd && requestedEnd > existingStart;
+  });
+
+  if (isDoubleBooked) {
+    const error = new Error(
+      'This charging port is already booked for the selected time window',
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const bookingRef = `FLT-${Math.floor(100000 + Math.random() * 900000)}`;
+  const rate = port.pricingRatePerKwh || 0.35;
+  const estimatedEnergyKwh = Number(
+    ((port.maxPowerOutputKw * (duration / 60)) * 0.8).toFixed(2),
+  );
+  const estimatedCost = Number((estimatedEnergyKwh * rate).toFixed(2));
+
+  const booking = await prisma.booking.create({
+    data: {
+      bookingReference: bookingRef,
+      userId: managerId,
+      chargingPortId,
+      fleetVehicleId,
+      // vehicleId intentionally null — this is a fleet booking
+      scheduledStartTime: requestedStart,
+      durationMinutes: duration,
+      estimatedCost,
+      status: 'pending',
+    },
+    include: {
+      chargingPort: {
+        select: { id: true, stationName: true, portIdentifier: true, pricingRatePerKwh: true },
+      },
+      fleetVehicle: {
+        select: { id: true, registrationNumber: true, make: true, model: true },
+      },
+    },
+  });
+
+  // Notify station owner
+  await createNotification({
+    userId: port.operatorId,
+    title: 'Fleet Booking Request ⏳',
+    message: `Fleet booking request (${bookingRef}) at ${port.stationName} for vehicle ${fleetVehicle.registrationNumber}. Please approve or reject.`,
+    type: 'warning',
+  });
+
+  // Notify fleet manager
+  await createNotification({
+    userId: managerId,
+    title: 'Fleet Booking Submitted ⏳',
+    message: `Booking (${bookingRef}) for ${fleetVehicle.registrationNumber} at ${port.stationName} is pending station owner approval.`,
+    type: 'info',
+  });
+
+  return booking;
+};
+
+/**
+ * Get all charging bookings for fleet vehicles managed by this manager.
+ */
+export const getFleetBookings = async (managerId, role) => {
+  const where =
+    role === 'admin'
+      ? { fleetVehicleId: { not: null } }
+      : { userId: managerId, fleetVehicleId: { not: null } };
+
+  return prisma.booking.findMany({
+    where,
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      fleetVehicle: {
+        select: { id: true, registrationNumber: true, make: true, model: true },
+      },
+    },
+    orderBy: { scheduledStartTime: 'desc' },
+  });
+};
+
+/**
+ * Get all charging session history for fleet vehicles managed by this manager.
+ */
+export const getFleetChargingHistory = async (managerId, role) => {
+  if (role === 'admin') {
+    return prisma.chargingSession.findMany({
+      where: { fleetVehicleId: { not: null } },
+      include: {
+        chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+        fleetVehicle: {
+          select: { id: true, registrationNumber: true, make: true, model: true },
+        },
+      },
+      orderBy: { startTime: 'desc' },
+    });
+  }
+
+  // Get manager's fleet vehicle IDs
+  const fleetVehicles = await prisma.fleetVehicle.findMany({
+    where: { managerId },
+    select: { id: true },
+  });
+  const vehicleIds = fleetVehicles.map((v) => v.id);
+
+  if (vehicleIds.length === 0) return [];
+
+  return prisma.chargingSession.findMany({
+    where: { fleetVehicleId: { in: vehicleIds } },
+    include: {
+      chargingPort: { select: { id: true, stationName: true, portIdentifier: true } },
+      fleetVehicle: {
+        select: { id: true, registrationNumber: true, make: true, model: true },
+      },
+    },
+    orderBy: { startTime: 'desc' },
+  });
+};
+

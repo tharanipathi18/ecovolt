@@ -52,24 +52,24 @@ export default function Modal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-fade-in"
         onClick={closeOnBackdrop ? onClose : undefined}
       />
 
       {/* Dialog container */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative w-full ${sizeClasses[size]} glass-card border border-surface-700 p-6 md:p-8 shadow-2xl animate-slide-up ${className}`}
+          className={`relative w-full ${sizeClasses[size]} bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xl animate-slide-up ${className}`}
         >
           {/* Header */}
-          <div className="flex items-start justify-between mb-4 pb-4 border-b border-surface-700/50">
+          <div className="flex items-start justify-between mb-4 pb-4 border-b border-slate-100">
             <div>
-              {title && <h3 className="text-xl font-bold text-white tracking-tight">{title}</h3>}
-              {subtitle && <p className="text-xs text-surface-400 mt-1">{subtitle}</p>}
+              {title && <h3 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h3>}
+              {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -82,7 +82,7 @@ export default function Modal({
 
           {/* Footer */}
           {footer && (
-            <div className="mt-6 pt-4 border-t border-surface-700/50 flex items-center justify-end gap-3">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
               {footer}
             </div>
           )}
@@ -91,3 +91,4 @@ export default function Modal({
     </div>
   );
 }
+

@@ -162,20 +162,20 @@ export default function EnergyOverview() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-emerald-950 via-surface-800 to-secondary-950 border border-emerald-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             ☀️
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Renewable Energy Generator Portfolio
               </h1>
               <Badge variant="success" dot pulse>Grid Synced</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Operator: <span className="text-white font-medium">{user?.name || 'Energy Operator'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Operator: <span className="text-slate-900 font-semibold">{user?.name || 'Energy Operator'}</span> •{' '}
               {generators.length} Renewable Facilities Connected
             </p>
           </div>
@@ -236,13 +236,13 @@ export default function EnergyOverview() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'overview'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ☀️ Energy Facilities ({generators.length})
@@ -251,8 +251,8 @@ export default function EnergyOverview() {
           onClick={() => setActiveTab('transactions')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'transactions'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           💰 Settlement Transactions ({transactions.length})
@@ -262,43 +262,43 @@ export default function EnergyOverview() {
       {/* TAB 1: Generators Grid */}
       {activeTab === 'overview' && (
         isLoading ? (
-          <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
-            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
             <span>Loading energy facilities from Supabase DB...</span>
           </div>
         ) : generators.length === 0 ? (
-          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <span className="text-4xl block">☀️</span>
-            <h3 className="text-lg font-bold text-white">No renewable generators registered.</h3>
-            <p className="text-xs text-surface-400">Click "+ Add Generator Facility" above to connect your first solar or wind array.</p>
+            <h3 className="text-lg font-bold text-slate-900">No renewable generators registered.</h3>
+            <p className="text-xs text-slate-500">Click "+ Add Generator Facility" above to connect your first solar or wind array.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {generators.map((gen) => (
-              <Card key={gen.id} variant="glass" padding="normal" className="flex flex-col justify-between">
+              <Card key={gen.id} variant="solid" padding="normal" className="flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className="text-xs font-mono text-emerald-400 uppercase font-bold">{gen.type}</span>
-                      <h3 className="text-base font-bold text-white mt-0.5">{gen.name}</h3>
+                      <span className="text-xs font-mono text-emerald-800 uppercase font-bold">{gen.type}</span>
+                      <h3 className="text-base font-bold text-slate-900 mt-0.5">{gen.name}</h3>
                     </div>
                     <Badge variant={gen.status === 'active' ? 'success' : 'warning'} dot>
                       {gen.status.toUpperCase()}
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
+                  <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Capacity:</span>
-                      <span className="text-white font-bold">{gen.capacityKw} kW</span>
+                      <span className="text-slate-500">Capacity:</span>
+                      <span className="text-slate-900 font-bold">{gen.capacityKw} kW</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Current Output:</span>
-                      <span className="text-emerald-400 font-bold">{gen.currentOutputKw} kW</span>
+                      <span className="text-slate-500">Current Output:</span>
+                      <span className="text-emerald-800 font-bold">{gen.currentOutputKw} kW</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Tariff Rate:</span>
-                      <span className="text-white font-semibold">${gen.tariffRatePerKwh} / kWh</span>
+                      <span className="text-slate-500">Tariff Rate:</span>
+                      <span className="text-slate-900 font-semibold">${gen.tariffRatePerKwh} / kWh</span>
                     </div>
                   </div>
                 </div>
@@ -312,7 +312,7 @@ export default function EnergyOverview() {
       {activeTab === 'transactions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Settlement Transactions</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Settlement Transactions</h2>
             <Badge variant="success">Energy Payouts</Badge>
           </div>
           <Table
@@ -322,6 +322,7 @@ export default function EnergyOverview() {
           />
         </section>
       )}
+
 
       {/* MODAL 1: Add Generator Facility */}
       <Modal

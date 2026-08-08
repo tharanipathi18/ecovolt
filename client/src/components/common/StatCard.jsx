@@ -27,26 +27,26 @@ export default function StatCard({
   const isDecrease = changeType === 'decrease';
 
   return (
-    <Card variant="glass" padding="normal" hover className={`relative overflow-hidden ${className}`}>
+    <Card variant="solid" padding="normal" hover className={`relative overflow-hidden ${className}`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-surface-400 uppercase tracking-wider mb-1">{title}</p>
-          <h4 className="text-2xl font-extrabold text-white tracking-tight">{value}</h4>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{title}</p>
+          <h4 className="text-2xl font-bold text-slate-900 tracking-tight">{value}</h4>
         </div>
 
         {icon && (
-          <div className="p-3 rounded-xl bg-surface-800/80 border border-surface-700 text-primary-400 shrink-0">
+          <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-100/80 text-emerald-800 shrink-0">
             {icon}
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between pt-3 border-t border-surface-700/40">
+      <div className="mt-4 flex items-center justify-between pt-3 border-t border-slate-100">
         <div className="flex items-center gap-1.5 text-xs">
           {change && (
             <span
               className={`inline-flex items-center gap-0.5 font-semibold ${
-                isIncrease ? 'text-emerald-400' : isDecrease ? 'text-red-400' : 'text-surface-400'
+                isIncrease ? 'text-emerald-700' : isDecrease ? 'text-rose-600' : 'text-slate-500'
               }`}
             >
               {isIncrease && (
@@ -62,7 +62,7 @@ export default function StatCard({
               {change}
             </span>
           )}
-          <span className="text-surface-500">{periodText}</span>
+          <span className="text-slate-400">{periodText}</span>
         </div>
 
         {badgeText && <Badge variant={badgeVariant} size="sm">{badgeText}</Badge>}
@@ -70,3 +70,4 @@ export default function StatCard({
     </Card>
   );
 }
+

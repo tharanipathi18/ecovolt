@@ -148,43 +148,47 @@ model ChargingQueue {
 }
 
 model ChargingSession {
-  id                        String       @id @default(uuid())
+  id                        String        @id @default(uuid())
   userId                    String
   chargingPortId            String
-  vehicleId                 String
-  startTime                 DateTime     @default(now())
+  vehicleId                 String?       // nullable — fleet sessions use fleetVehicleId instead
+  fleetVehicleId            String?       // set for fleet vehicle charging sessions
+  startTime                 DateTime      @default(now())
   endTime                   DateTime?
   startStateOfCharge        Float
   endStateOfCharge          Float?
-  energyConsumedKwh         Float        @default(0)
-  cost                      Float        @default(0)
-  renewableEnergyPercentage Float        @default(100)
-  status                    String       @default("active")
-  createdAt                 DateTime     @default(now())
-  updatedAt                 DateTime     @updatedAt
-  chargingPort              ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
-  user                      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicle                   Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  energyConsumedKwh         Float         @default(0)
+  cost                      Float         @default(0)
+  renewableEnergyPercentage Float         @default(100)
+  status                    String        @default("active")
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  chargingPort              ChargingPort  @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle                   Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  fleetVehicle              FleetVehicle? @relation("FleetVehicleSessions", fields: [fleetVehicleId], references: [id], onDelete: SetNull)
   payment                   Payment?
 
   @@map("charging_sessions")
 }
 
 model Booking {
-  id                 String       @id @default(uuid())
-  bookingReference   String       @unique
+  id                 String        @id @default(uuid())
+  bookingReference   String        @unique
   userId             String
   chargingPortId     String
-  vehicleId          String
+  vehicleId          String?       // nullable — fleet bookings use fleetVehicleId instead
+  fleetVehicleId     String?       // set for fleet vehicle bookings
   scheduledStartTime DateTime
-  durationMinutes    Int          @default(45)
-  status             String       @default("pending")
-  estimatedCost      Float        @default(0)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  chargingPort       ChargingPort @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicle            Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  durationMinutes    Int           @default(45)
+  status             String        @default("pending")
+  estimatedCost      Float         @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  chargingPort       ChargingPort  @relation(fields: [chargingPortId], references: [id], onDelete: Cascade)
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle            Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  fleetVehicle       FleetVehicle? @relation("FleetVehicleBookings", fields: [fleetVehicleId], references: [id], onDelete: SetNull)
 
   @@map("bookings")
 }
@@ -230,6 +234,8 @@ model FleetVehicle {
   assignedDriver           Driver?               @relation(fields: [assignedDriverId], references: [id])
   manager                  User                  @relation("FleetManager", fields: [managerId], references: [id], onDelete: Cascade)
   maintenanceSchedules     MaintenanceSchedule[]
+  bookings                 Booking[]             @relation("FleetVehicleBookings")
+  chargingSessions         ChargingSession[]     @relation("FleetVehicleSessions")
 
   @@map("fleet_vehicles")
 }

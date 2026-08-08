@@ -194,3 +194,47 @@ export const getFleetAnalytics = asyncHandler(async (req, res) => {
   const analytics = await fleetService.getFleetAnalytics(req.user.id, req.user.role);
   res.status(200).json({ success: true, data: analytics });
 });
+
+// ─── Fleet Charging ────────────────────────────────────────────────────────
+
+/**
+ * @desc    Get nearby approved charging ports for fleet manager
+ * @route   GET /api/fleet/charging/nearby-ports
+ * @access  Private (fleet_manager, admin)
+ */
+export const getNearbyPorts = asyncHandler(async (req, res) => {
+  const { lat, lng } = req.query;
+  const ports = await fleetService.getNearbyPortsForFleet(req.user.id, lat, lng);
+  res.status(200).json({ success: true, count: ports.length, data: { ports } });
+});
+
+/**
+ * @desc    Create a fleet charging slot booking (status = pending)
+ * @route   POST /api/fleet/charging/bookings
+ * @access  Private (fleet_manager, admin)
+ */
+export const createFleetBooking = asyncHandler(async (req, res) => {
+  const booking = await fleetService.createFleetBooking(req.user.id, req.body);
+  res.status(201).json({ success: true, data: { booking } });
+});
+
+/**
+ * @desc    Get all fleet charging bookings for this manager
+ * @route   GET /api/fleet/charging/bookings
+ * @access  Private (fleet_manager, admin)
+ */
+export const getFleetBookings = asyncHandler(async (req, res) => {
+  const bookings = await fleetService.getFleetBookings(req.user.id, req.user.role);
+  res.status(200).json({ success: true, count: bookings.length, data: { bookings } });
+});
+
+/**
+ * @desc    Get fleet charging session history for this manager
+ * @route   GET /api/fleet/charging/history
+ * @access  Private (fleet_manager, admin)
+ */
+export const getFleetChargingHistory = asyncHandler(async (req, res) => {
+  const sessions = await fleetService.getFleetChargingHistory(req.user.id, req.user.role);
+  res.status(200).json({ success: true, count: sessions.length, data: { sessions } });
+});
+

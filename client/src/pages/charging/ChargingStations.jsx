@@ -320,20 +320,20 @@ export default function ChargingStations() {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-secondary-950 via-surface-800 to-primary-950 border border-secondary-500/30 shadow-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-secondary-500/10 border border-secondary-500/30 text-secondary-400 flex items-center justify-center text-3xl shadow-lg shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center text-3xl shadow-2xs shrink-0">
             🔌
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 EV Charging Infrastructure Module
               </h1>
               <Badge variant="success" dot pulse>Live Supabase Sync</Badge>
             </div>
-            <p className="text-surface-400 text-xs md:text-sm mt-1">
-              Operator: <span className="text-white font-medium">{user?.name || 'Port Operator'}</span> •{' '}
+            <p className="text-slate-500 text-xs md:text-sm mt-1">
+              Operator: <span className="text-slate-900 font-semibold">{user?.name || 'Port Operator'}</span> •{' '}
               {totalPortsCount} Managed Connectors
             </p>
           </div>
@@ -397,13 +397,13 @@ export default function ChargingStations() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-surface-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('slots')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'slots'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           🔌 Charging Slots ({ports.length})
@@ -412,8 +412,8 @@ export default function ChargingStations() {
           onClick={() => setActiveTab('sessions')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'sessions'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           ⚡ Active Charging ({activeSessions.length})
@@ -422,8 +422,8 @@ export default function ChargingStations() {
           onClick={() => setActiveTab('bookings')}
           className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'bookings'
-              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-              : 'text-surface-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           📋 Booking Requests ({operatorBookings.length})
@@ -433,15 +433,15 @@ export default function ChargingStations() {
       {/* TAB 1: Charging Slots Grid */}
       {activeTab === 'slots' && (
         isLoading ? (
-          <div className="p-8 text-center text-surface-400 flex items-center justify-center gap-3">
-            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
             <span>Loading charging stations from Supabase...</span>
           </div>
         ) : ports.length === 0 ? (
-          <div className="p-12 text-center glass-card rounded-2xl border border-surface-700 space-y-3">
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <span className="text-4xl block">🔌</span>
-            <h3 className="text-lg font-bold text-white">No charging stations available.</h3>
-            <p className="text-xs text-surface-400">Click "Become Station Owner" to submit an application for Admin approval.</p>
+            <h3 className="text-lg font-bold text-slate-900">No charging stations available.</h3>
+            <p className="text-xs text-slate-500">Click "Become Station Owner" to submit an application for Admin approval.</p>
             <Button variant="primary" size="md" onClick={() => setIsApplyModalOpen(true)}>
               📋 Become Station Owner Now
             </Button>
@@ -449,12 +449,12 @@ export default function ChargingStations() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {ports.map((port) => (
-              <Card key={port.id} variant="glass" padding="normal" className="flex flex-col justify-between">
+              <Card key={port.id} variant="solid" padding="normal" className="flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className="text-xs font-mono text-secondary-400">{port.portIdentifier}</span>
-                      <h3 className="text-base font-bold text-white mt-0.5">{port.stationName}</h3>
+                      <span className="text-xs font-mono text-emerald-800 font-bold">{port.portIdentifier}</span>
+                      <h3 className="text-base font-bold text-slate-900 mt-0.5">{port.stationName}</h3>
                     </div>
                     <Badge
                       variant={
@@ -472,23 +472,23 @@ export default function ChargingStations() {
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 py-3 my-3 border-y border-surface-700/50 text-xs">
+                  <div className="space-y-2 py-3 my-3 border-y border-slate-100 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Connector:</span>
-                      <span className="text-white font-semibold uppercase">{port.connectorType?.replace('_', ' ')}</span>
+                      <span className="text-slate-500">Connector:</span>
+                      <span className="text-slate-900 font-semibold uppercase">{port.connectorType?.replace('_', ' ')}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Max Output:</span>
-                      <span className="text-primary-400 font-bold">{port.maxPowerOutputKw} kW</span>
+                      <span className="text-slate-500">Max Output:</span>
+                      <span className="text-emerald-800 font-bold">{port.maxPowerOutputKw} kW</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-400">Tariff:</span>
-                      <span className="text-white font-semibold">${port.pricingRatePerKwh} / kWh</span>
+                      <span className="text-slate-500">Tariff:</span>
+                      <span className="text-slate-900 font-semibold">${port.pricingRatePerKwh} / kWh</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-surface-700/50 flex flex-col gap-2">
+                <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col gap-2">
                   {port.isApproved && port.status === 'available' && (
                     <Button
                       variant="primary"
@@ -513,7 +513,7 @@ export default function ChargingStations() {
       {activeTab === 'sessions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Active Charging Vehicles</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Active Charging Vehicles</h2>
             <Badge variant="info">Live Charging Telemetry</Badge>
           </div>
           <Table
@@ -528,7 +528,7 @@ export default function ChargingStations() {
       {activeTab === 'bookings' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white tracking-tight">Slot Reservation Requests</h2>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Slot Reservation Requests</h2>
             <Badge variant="warning">Owner Decision Required</Badge>
           </div>
           <Table
@@ -538,6 +538,7 @@ export default function ChargingStations() {
           />
         </section>
       )}
+
 
       {/* MODAL 0: Apply to Become Charging Station Owner */}
       <Modal

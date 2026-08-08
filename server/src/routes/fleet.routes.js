@@ -75,4 +75,11 @@ router.put('/maintenance/:id', authorize('fleet_manager', 'admin'), fleetControl
 // ─── Analytics ────────────────────────────────────────────────────────────
 router.get('/analytics', authorize('fleet_manager', 'admin'), fleetController.getFleetAnalytics);
 
+// ─── Fleet Charging ────────────────────────────────────────────────────────
+router.get('/charging/nearby-ports', authorize('fleet_manager', 'admin'), fleetController.getNearbyPorts);
+router.post('/charging/bookings', authorize('fleet_manager', 'admin'), fleetController.createFleetBooking);
+router.get('/charging/bookings', authorize('fleet_manager', 'admin'), fleetController.getFleetBookings);
+router.get('/charging/history', authorize('fleet_manager', 'admin'), fleetController.getFleetChargingHistory);
+
 export default router;
+
