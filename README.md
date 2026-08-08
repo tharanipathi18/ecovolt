@@ -433,21 +433,11 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## 📸 UI Screenshots
 
-Placeholders for platform UI views:
-
-- **EV User Dashboard:** Discover nearby ports, reserve slots, view battery analytics.
-- **Charging Port Owner Hub:** Manage connectors, accept reservations, purchase clean power.
-- **Energy Generator Portal:** Log production output, publish energy offers, approve requests.
-- **Fleet Management Dashboard:** Oversee vehicles, assign drivers, schedule maintenance.
-- **Admin Governance Portal:** Review station applications, manage permissions, audit trading.
-
----
 
 ## 📌 MVP Status
 
-EcoVolt is currently a **Full-stack MVP (v1.0.0)**. 
+EcoVolt is currently a **Full-stack MVP (v2.0.0)**. 
 
 All primary application workflows—user authentication, tab-independent sessions, charging port reservations, P2P renewable energy marketplace transactions, fleet management, admin governance, and AI predictive REST microservices—are implemented and backed by a Supabase PostgreSQL database using Prisma ORM.
 
